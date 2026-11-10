@@ -58,5 +58,26 @@ def test_api_devices(client: TestClient):
     assert "watch" in data
     assert "name" in data["iphone"]
     assert "name" in data["watch"]
-    assert data["iphone"]["connected"] is True
-    assert data["watch"]["connected"] is True
+    assert "status" in data["iphone"]
+    assert "discovery_active" in data
+    assert data["discovery_active"] is True
+
+
+def test_api_devices_scan_and_simulate(client: TestClient):
+    # Test active hardware scan
+    scan_res = client.post("/api/devices/scan")
+    assert scan_res.status_code == 200
+    scan_data = scan_res.json()
+    assert "hardware_found" in scan_data
+
+    # Test explicit simulation toggle
+    sim_res = client.post("/api/devices/simulate?device=iphone&connected=true")
+    assert sim_res.status_code == 200
+    sim_data = sim_res.json()
+    assert sim_data["iphone"]["connected"] is True
+    assert sim_data["iphone"]["is_simulated"] is True
+
+    # Test companion pairing web interface
+    comp_res = client.get("/companion")
+    assert comp_res.status_code == 200
+    assert "Tennis AI Companion" in comp_res.text

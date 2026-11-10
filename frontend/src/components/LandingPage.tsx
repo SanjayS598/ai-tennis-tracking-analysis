@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
   ArrowRight,
   ShieldCheck,
@@ -115,6 +116,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     scene.add(ballGroup);
     ballMeshRef.current = ballGroup;
 
+    // Temporary procedural fallback while GLTF loads
     const ballTexture = createTennisBallTexture();
     const ballGeo = new THREE.SphereGeometry(1.65, 64, 64);
     const ballMat = new THREE.MeshStandardMaterial({
@@ -124,8 +126,43 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
       bumpMap: ballTexture,
       bumpScale: 0.035,
     });
-    const ballMesh = new THREE.Mesh(ballGeo, ballMat);
-    ballGroup.add(ballMesh);
+    const fallbackMesh = new THREE.Mesh(ballGeo, ballMat);
+    fallbackMesh.name = 'fallback_ball';
+    ballGroup.add(fallbackMesh);
+
+    // Load authentic 3D Tennis Ball Model (from tennis-ball.zip)
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load(
+      '/models/tennis_ball.glb',
+      (gltf) => {
+        const authenticBall = gltf.scene;
+        // Radius is ~3.09, normalize to 1.65 radius
+        authenticBall.scale.set(0.534, 0.534, 0.534);
+
+        authenticBall.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const m = child as THREE.Mesh;
+            if (m.material) {
+              const mat = m.material as THREE.MeshStandardMaterial;
+              mat.roughness = 0.82;
+              mat.metalness = 0.02;
+              mat.needsUpdate = true;
+            }
+          }
+        });
+
+        // Remove the temporary fallback mesh and add the real 3D model
+        const existingFallback = ballGroup.getObjectByName('fallback_ball');
+        if (existingFallback) {
+          ballGroup.remove(existingFallback);
+        }
+        ballGroup.add(authenticBall);
+      },
+      undefined,
+      (err) => {
+        console.warn('Note: Using fallback procedural tennis ball geometry:', err);
+      }
+    );
 
     // Ambient floating dust particles
     const particleCount = 60;
@@ -223,8 +260,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     };
   }, []);
 
-  const isIPhoneConnected = devices?.iphone?.connected ?? true;
-  const isWatchConnected = devices?.watch?.connected ?? true;
+  const isIPhoneConnected = devices?.iphone?.connected ?? false;
+  const isWatchConnected = devices?.watch?.connected ?? false;
+  const isSearching = !isIPhoneConnected && !isWatchConnected;
 
   return (
     <div style={{ position: 'relative', background: '#000000', color: '#f3f4f6', minHeight: '100vh', overflowX: 'hidden' }}>
@@ -317,9 +355,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
                 color: '#cbd5e1',
               }}
             >
-              <Smartphone size={13} color={isIPhoneConnected ? '#30d158' : '#6b7280'} />
-              <Watch size={13} color={isWatchConnected ? '#30d158' : '#6b7280'} />
-              <span style={{ fontSize: '11px', color: '#30d158' }}>Connected</span>
+              <Smartphone size={13} color={isIPhoneConnected ? '#30d158' : '#ff9f0a'} />
+              <Watch size={13} color={isWatchConnected ? '#30d158' : '#86868b'} />
+              <span style={{ fontSize: '11px', color: isSearching ? '#ff9f0a' : '#30d158' }}>
+                {isSearching ? 'Devices: Searching...' : (devices?.simulated_mode ? 'Demo Hardware' : 'Hardware Connected')}
+              </span>
             </div>
 
             <button onClick={onLaunchApp} className="glass-btn-prominent">
