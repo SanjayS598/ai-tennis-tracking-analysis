@@ -12,6 +12,7 @@ import {
   Search,
   Video,
   FileQuestion,
+  Trash2,
 } from 'lucide-react';
 import { SessionSummary, SessionType, UserProfile } from '../types';
 
@@ -20,6 +21,7 @@ interface SessionHubViewProps {
   currentUser?: UserProfile;
   onSelectSession: (sessionId: string) => void;
   onOpenUpload: () => void;
+  onDeleteSession?: (sessionId: string) => void;
 }
 
 export const SessionHubView: React.FC<SessionHubViewProps> = ({
@@ -27,6 +29,7 @@ export const SessionHubView: React.FC<SessionHubViewProps> = ({
   currentUser,
   onSelectSession,
   onOpenUpload,
+  onDeleteSession,
 }) => {
   const [filterType, setFilterType] = useState<'ALL' | SessionType>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -265,9 +268,34 @@ export const SessionHubView: React.FC<SessionHubViewProps> = ({
                         {badgeLabel}
                       </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8', fontSize: '12px' }}>
-                        <Calendar size={13} />
-                        <span>{new Date(s.created_at).toLocaleDateString()}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#94a3b8', fontSize: '12px' }}>
+                          <Calendar size={13} />
+                          <span>{new Date(s.created_at).toLocaleDateString()}</span>
+                        </div>
+                        {onDeleteSession && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Delete session '${s.display_id || s.session_id}'?`)) {
+                                onDeleteSession(s.session_id);
+                              }
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#64748b',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            title="Delete session"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
