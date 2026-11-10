@@ -35,8 +35,12 @@ export interface BounceEvent {
   reason: string;
 }
 
+export type SessionType = 'match' | 'rally' | 'serve';
+
 export interface SessionReport {
   session_id: string;
+  session_type?: SessionType;
+  player_name?: string;
   created_at: string;
   video_metadata: VideoMetadata;
   camera_position: string;
@@ -46,6 +50,9 @@ export interface SessionReport {
 
 export interface SessionSummary {
   session_id: string;
+  display_id?: string;
+  session_type?: SessionType;
+  player_name?: string;
   created_at: string;
   source_video: string;
   duration_sec: number;
@@ -56,6 +63,26 @@ export interface SessionSummary {
   in_calls: number;
   out_calls: number;
   uncertain_calls: number;
+}
+
+export interface DeviceInfo {
+  name: string;
+  connected: boolean;
+  mode?: string;
+  camera_position?: string;
+  haptic_engine?: string;
+  heart_rate_bpm?: number;
+  active_calories?: number;
+  battery_pct: number;
+  latency_ms?: number;
+  workout_active?: boolean;
+}
+
+export interface DeviceStatusResponse {
+  iphone: DeviceInfo;
+  watch: DeviceInfo;
+  live_subscribers: number;
+  server_time_ms: number;
 }
 
 export interface SampleVideo {
