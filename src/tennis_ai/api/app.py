@@ -81,6 +81,24 @@ def list_samples() -> List[Dict[str, Any]]:
     return samples
 
 
+def _find_session_dir(session_id: str) -> Optional[Path]:
+    """Find session directory by directory name or matching internal session_id."""
+    direct = OUTPUTS_DIR / session_id
+    if direct.is_dir() and (direct / "session.json").exists():
+        return direct
+    if OUTPUTS_DIR.exists():
+        for d in OUTPUTS_DIR.iterdir():
+            if d.is_dir() and (d / "session.json").exists():
+                try:
+                    with open(d / "session.json", "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    if meta.get("session_id") == session_id:
+                        return d
+                except Exception:
+                    continue
+    return None
+
+
 @app.get("/api/sessions")
 def list_sessions() -> List[Dict[str, Any]]:
     """List all analyzed match sessions."""
@@ -99,7 +117,8 @@ def list_sessions() -> List[Dict[str, Any]]:
                         uncertain_count = sum(1 for e in events if e.get("call") == "UNCERTAIN")
 
                         sessions.append({
-                            "session_id": data.get("session_id", session_dir.name),
+                            "session_id": session_dir.name,
+                            "display_id": data.get("session_id", session_dir.name),
                             "created_at": data.get("created_at"),
                             "source_video": data.get("video_metadata", {}).get("source_video"),
                             "duration_sec": data.get("video_metadata", {}).get("duration_sec"),
@@ -119,20 +138,23 @@ def list_sessions() -> List[Dict[str, Any]]:
 @app.get("/api/sessions/{session_id}")
 def get_session(session_id: str) -> Dict[str, Any]:
     """Retrieve full session report JSON."""
-    session_dir = OUTPUTS_DIR / session_id
-    json_path = session_dir / "session.json"
-    if not json_path.exists():
+    s_dir = _find_session_dir(session_id)
+    if not s_dir:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
 
-    with open(json_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with open(s_dir / "session.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+        data["session_id"] = session_id
+        return data
 
 
 @app.get("/api/sessions/{session_id}/video")
 def get_session_video(session_id: str) -> FileResponse:
     """Stream annotated match video."""
-    session_dir = OUTPUTS_DIR / session_id
-    video_path = session_dir / "annotated_match.mp4"
+    s_dir = _find_session_dir(session_id)
+    if not s_dir:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    video_path = s_dir / "annotated_match.mp4"
     if not video_path.exists():
         raise HTTPException(status_code=404, detail="Annotated video not available for this session")
 
