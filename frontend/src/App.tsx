@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Target, UserCheck, Eye, Layers, Sparkles } from 'lucide-react';
-import { SessionReport, SessionSummary } from './types';
+import {
+  Activity,
+  Target,
+  UserCheck,
+  Eye,
+  Layers,
+  Sparkles,
+  Smartphone,
+  Watch,
+  Upload,
+  ArrowLeft,
+  Box,
+} from 'lucide-react';
+import { DeviceStatusResponse, SessionReport, SessionSummary } from './types';
+import { LandingPage } from './components/LandingPage';
+import { SessionHubView } from './components/SessionHubView';
 import { MatchReview } from './components/MatchReview';
 import { CourtCalibratorView } from './components/CourtCalibratorView';
 import { LiveMonitorView } from './components/LiveMonitorView';
 import { BiomechanicsView } from './components/BiomechanicsView';
+import { UploadSessionModal } from './components/UploadSessionModal';
+import { DeviceStatusModal } from './components/DeviceStatusModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const DEMO_FALLBACK_SESSION: SessionReport = {
   session_id: 'session_demo_match',
+  session_type: 'match',
+  player_name: 'Sanjay Shankar',
   created_at: new Date().toISOString(),
   video_metadata: {
     source_video: 'data/samples/match_clip_1.mp4',
@@ -66,13 +84,41 @@ const DEMO_FALLBACK_SESSION: SessionReport = {
 };
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'MATCH' | 'CALIBRATE' | 'LIVE' | 'BIOMECHANICS'>('MATCH');
+  const [view, setView] = useState<'LANDING' | 'APP'>('LANDING');
+  const [activeTab, setActiveTab] = useState<'SESSIONS' | 'REPLAY' | 'CALIBRATE' | 'LIVE' | 'BIOMECHANICS'>('SESSIONS');
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('session_demo_match');
   const [currentSession, setCurrentSession] = useState<SessionReport>(DEMO_FALLBACK_SESSION);
+  const [devices, setDevices] = useState<DeviceStatusResponse | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
+  const [isDeviceModalOpen, setIsDeviceModalOpen] = useState<boolean>(false);
 
   const loadFallbackMock = () => {
     setCurrentSession(DEMO_FALLBACK_SESSION);
+  };
+
+  // Poll device status
+  useEffect(() => {
+    const fetchDevices = () => {
+      fetch('/api/devices')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data) setDevices(data);
+        })
+        .catch(() => {});
+    };
+
+    fetchDevices();
+    const interval = setInterval(fetchDevices, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Toggle device simulation
+  const handleToggleDeviceSimulation = (device: string, connected: boolean) => {
+    fetch(`/api/devices/simulate?device=${device}&connected=${connected}`, { method: 'POST' })
+      .then((res) => res.json())
+      .then((data) => setDevices(data))
+      .catch(() => {});
   };
 
   // Load available sessions from API
@@ -117,13 +163,47 @@ export const App: React.FC = () => {
       });
   }, [selectedSessionId]);
 
+  const handleSelectSessionAndReplay = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setActiveTab('REPLAY');
+  };
+
+  const handleSessionCreated = (newSession: SessionReport) => {
+    setCurrentSession(newSession);
+    setSelectedSessionId(newSession.session_id);
+    setActiveTab('REPLAY');
+
+    // Refresh sessions list
+    fetch('/api/sessions')
+      .then((res) => res.json())
+      .then((data: SessionSummary[]) => {
+        if (Array.isArray(data)) setSessions(data);
+      })
+      .catch(() => {});
+  };
+
+  // If user is on landing page, display 3D tennis ball scroll experience
+  if (view === 'LANDING') {
+    return (
+      <ErrorBoundary>
+        <LandingPage
+          onLaunchApp={() => setView('APP')}
+          devices={devices}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  const isIPhoneConnected = devices?.iphone?.connected ?? true;
+  const isWatchConnected = devices?.watch?.connected ?? true;
+
   return (
     <ErrorBoundary>
       <div className="app-container">
         {/* Top Navbar */}
         <header
           style={{
-            height: '64px',
+            height: '66px',
             background: 'rgba(11, 15, 25, 0.95)',
             backdropFilter: 'blur(16px)',
             borderBottom: '1px solid #1f2937',
@@ -136,68 +216,92 @@ export const App: React.FC = () => {
             zIndex: 50,
           }}
         >
-          {/* Logo & Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div
+          {/* Logo & Return to Landing */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              onClick={() => setView('LANDING')}
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: '10px',
-                background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+                background: '#1f2937',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '6px 10px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 900,
-                color: '#ffffff',
-                fontSize: '20px',
-                boxShadow: '0 0 20px rgba(16, 185, 129, 0.45)',
+                gap: '6px',
+                color: '#94a3b8',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
               }}
+              title="Return to Product Showcase"
             >
-              🎾
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '16px', letterSpacing: '-0.3px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                Tennis AI
-                <span
-                  style={{
-                    color: '#10b981',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  PRO 3D
-                </span>
+              <ArrowLeft size={14} /> Home
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  color: '#ffffff',
+                  fontSize: '18px',
+                  boxShadow: '0 0 16px rgba(16, 185, 129, 0.4)',
+                }}
+              >
+                🎾
               </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8' }}>Tracking, Line Calls & Biomechanics</div>
+              <div style={{ fontWeight: 800, fontSize: '16px', color: '#ffffff' }}>
+                Tennis AI <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>PRO</span>
+              </div>
             </div>
           </div>
 
           {/* View Navigation Tabs */}
           <nav style={{ display: 'flex', gap: '6px' }}>
             <button
-              onClick={() => setActiveTab('MATCH')}
+              onClick={() => setActiveTab('SESSIONS')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '8px 16px',
+                padding: '8px 14px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontWeight: 600,
                 border: 'none',
-                background: activeTab === 'MATCH' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-                color: activeTab === 'MATCH' ? '#ffffff' : '#94a3b8',
+                background: activeTab === 'SESSIONS' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
+                color: activeTab === 'SESSIONS' ? '#ffffff' : '#94a3b8',
                 cursor: 'pointer',
-                boxShadow: activeTab === 'MATCH' ? '0 0 16px rgba(16, 185, 129, 0.35)' : 'none',
-                transition: 'all 0.2s',
+                boxShadow: activeTab === 'SESSIONS' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
               }}
             >
-              <Eye size={16} /> Match Analytics & 3D
+              <Layers size={15} /> Session Library
+            </button>
+
+            <button
+              onClick={() => setActiveTab('REPLAY')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                border: 'none',
+                background: activeTab === 'REPLAY' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
+                color: activeTab === 'REPLAY' ? '#ffffff' : '#94a3b8',
+                cursor: 'pointer',
+                boxShadow: activeTab === 'REPLAY' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
+              }}
+            >
+              <Box size={15} /> 3D Hawk-Eye Replay
             </button>
 
             <button
@@ -206,7 +310,7 @@ export const App: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '8px 16px',
+                padding: '8px 14px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontWeight: 600,
@@ -214,11 +318,10 @@ export const App: React.FC = () => {
                 background: activeTab === 'CALIBRATE' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
                 color: activeTab === 'CALIBRATE' ? '#ffffff' : '#94a3b8',
                 cursor: 'pointer',
-                boxShadow: activeTab === 'CALIBRATE' ? '0 0 16px rgba(16, 185, 129, 0.35)' : 'none',
-                transition: 'all 0.2s',
+                boxShadow: activeTab === 'CALIBRATE' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
               }}
             >
-              <Target size={16} /> Court Calibrator
+              <Target size={15} /> Court Calibrator
             </button>
 
             <button
@@ -227,7 +330,7 @@ export const App: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '8px 16px',
+                padding: '8px 14px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontWeight: 600,
@@ -235,11 +338,10 @@ export const App: React.FC = () => {
                 background: activeTab === 'LIVE' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
                 color: activeTab === 'LIVE' ? '#ffffff' : '#94a3b8',
                 cursor: 'pointer',
-                boxShadow: activeTab === 'LIVE' ? '0 0 16px rgba(16, 185, 129, 0.35)' : 'none',
-                transition: 'all 0.2s',
+                boxShadow: activeTab === 'LIVE' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
               }}
             >
-              <Activity size={16} /> Live Watch Monitor
+              <Activity size={15} /> Live Watch Monitor
             </button>
 
             <button
@@ -248,7 +350,7 @@ export const App: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '8px 16px',
+                padding: '8px 14px',
                 borderRadius: '8px',
                 fontSize: '13px',
                 fontWeight: 600,
@@ -256,48 +358,75 @@ export const App: React.FC = () => {
                 background: activeTab === 'BIOMECHANICS' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
                 color: activeTab === 'BIOMECHANICS' ? '#ffffff' : '#94a3b8',
                 cursor: 'pointer',
-                boxShadow: activeTab === 'BIOMECHANICS' ? '0 0 16px rgba(16, 185, 129, 0.35)' : 'none',
-                transition: 'all 0.2s',
+                boxShadow: activeTab === 'BIOMECHANICS' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
               }}
             >
-              <UserCheck size={16} /> Biomechanics Studio
+              <UserCheck size={15} /> Biomechanics
             </button>
           </nav>
 
-          {/* Session Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={16} color="#94a3b8" />
-            <select
-              value={selectedSessionId}
-              onChange={(e) => setSelectedSessionId(e.target.value)}
+          {/* Right Header Actions: Device Status & Upload */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Device Hardware Pills (Clickable to open Device Modal) */}
+            <div
+              onClick={() => setIsDeviceModalOpen(true)}
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
                 background: '#111827',
-                color: '#f3f4f6',
-                border: '1px solid #374151',
-                borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
+                border: '1px solid #1f2937',
+                borderRadius: '20px',
+                padding: '5px 12px',
                 cursor: 'pointer',
-                outline: 'none',
+              }}
+              title="Click to view Apple Watch & iPhone connection details"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#cbd5e1' }}>
+                <Smartphone size={13} color={isIPhoneConnected ? '#34d399' : '#6b7280'} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isIPhoneConnected ? '#10b981' : '#6b7280' }} />
+              </div>
+              <div style={{ width: 1, height: 12, background: '#374151' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#cbd5e1' }}>
+                <Watch size={13} color={isWatchConnected ? '#34d399' : '#6b7280'} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isWatchConnected ? '#10b981' : '#6b7280' }} />
+              </div>
+            </div>
+
+            {/* Upload Button */}
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '12px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 0 14px rgba(16, 185, 129, 0.4)',
               }}
             >
-              {sessions.length === 0 ? (
-                <option value="session_demo_match">Demo Session (Court Clip 1)</option>
-              ) : (
-                sessions.map((s) => (
-                  <option key={s.session_id} value={s.session_id}>
-                    {s.session_id} ({s.total_events} bounces)
-                  </option>
-                ))
-              )}
-            </select>
+              <Upload size={14} /> Upload Video
+            </button>
           </div>
         </header>
 
-        {/* Main Tab Content */}
+        {/* Main Content Area */}
         <main style={{ flex: 1, paddingBottom: '32px' }}>
-          {activeTab === 'MATCH' && (
+          {activeTab === 'SESSIONS' && (
+            <SessionHubView
+              sessions={sessions}
+              onSelectSession={handleSelectSessionAndReplay}
+              onOpenUpload={() => setIsUploadOpen(true)}
+            />
+          )}
+
+          {activeTab === 'REPLAY' && (
             <MatchReview
               session={currentSession}
               sessionsList={sessions}
@@ -315,6 +444,21 @@ export const App: React.FC = () => {
 
           {activeTab === 'BIOMECHANICS' && <BiomechanicsView />}
         </main>
+
+        {/* Upload Modal */}
+        <UploadSessionModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onSessionCreated={handleSessionCreated}
+        />
+
+        {/* Device Status Modal */}
+        <DeviceStatusModal
+          isOpen={isDeviceModalOpen}
+          onClose={() => setIsDeviceModalOpen(false)}
+          devices={devices}
+          onToggleDeviceSimulation={handleToggleDeviceSimulation}
+        />
       </div>
     </ErrorBoundary>
   );

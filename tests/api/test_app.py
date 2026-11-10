@@ -48,3 +48,15 @@ def test_api_calibrate_court(client: TestClient):
     assert data["status"] == "manual"
     assert data["homography"] is not None
     assert data["reprojection_error_px"] >= 0.0
+
+
+def test_api_devices(client: TestClient):
+    res = client.get("/api/devices")
+    assert res.status_code == 200
+    data = res.json()
+    assert "iphone" in data
+    assert "watch" in data
+    assert "name" in data["iphone"]
+    assert "name" in data["watch"]
+    assert data["iphone"]["connected"] is True
+    assert data["watch"]["connected"] is True

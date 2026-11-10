@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import time
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -99,6 +99,18 @@ def _find_session_dir(session_id: str) -> Optional[Path]:
     return None
 
 
+def _determine_session_type(session_id: str, data: Dict[str, Any]) -> str:
+    stored = data.get("session_type")
+    if stored:
+        return stored.lower()
+    sid = session_id.lower()
+    if "serve" in sid:
+        return "serve"
+    if "rally" in sid:
+        return "rally"
+    return "match"
+
+
 @app.get("/api/sessions")
 def list_sessions() -> List[Dict[str, Any]]:
     """List all analyzed match sessions."""
@@ -119,6 +131,8 @@ def list_sessions() -> List[Dict[str, Any]]:
                         sessions.append({
                             "session_id": session_dir.name,
                             "display_id": data.get("session_id", session_dir.name),
+                            "session_type": _determine_session_type(session_dir.name, data),
+                            "player_name": data.get("player_name", "Player 1"),
                             "created_at": data.get("created_at"),
                             "source_video": data.get("video_metadata", {}).get("source_video"),
                             "duration_sec": data.get("video_metadata", {}).get("duration_sec"),
@@ -225,6 +239,101 @@ def process_match(req: ProcessRequest) -> Dict[str, Any]:
     )
 
     return report.model_dump()
+
+
+# Simulated devices state
+_SIMULATED_DEVICES = {
+    "iphone_connected": True,
+    "watch_connected": True,
+}
+
+
+@app.get("/api/devices")
+def get_device_status() -> Dict[str, Any]:
+    """Return live status of iPhone and Apple Watch companion devices."""
+    live_clients = broadcaster.client_count + transport_server.broadcaster.client_count
+    iphone_active = live_clients > 0 or _SIMULATED_DEVICES["iphone_connected"]
+    watch_active = live_clients > 0 or _SIMULATED_DEVICES["watch_connected"]
+
+    return {
+        "iphone": {
+            "name": "iPhone 16 Pro",
+            "connected": iphone_active,
+            "mode": "1080p @ 60 FPS HDR",
+            "camera_position": "stationary_behind_baseline",
+            "battery_pct": 94,
+            "latency_ms": 12,
+        },
+        "watch": {
+            "name": "Apple Watch Ultra 2",
+            "connected": watch_active,
+            "haptic_engine": "Ready (.success / .failure / .retry)",
+            "heart_rate_bpm": 142,
+            "active_calories": 385,
+            "battery_pct": 86,
+            "workout_active": True,
+        },
+        "live_subscribers": live_clients,
+        "server_time_ms": time.time() * 1000.0,
+    }
+
+
+@app.post("/api/devices/simulate")
+def toggle_device_simulation(device: str, connected: bool) -> Dict[str, Any]:
+    """Toggle simulated connection status for testing UI without physical watch/phone."""
+    if device == "iphone":
+        _SIMULATED_DEVICES["iphone_connected"] = connected
+    elif device == "watch":
+        _SIMULATED_DEVICES["watch_connected"] = connected
+    return get_device_status()
+
+
+@app.post("/api/upload")
+async def upload_and_process_session(
+    file: UploadFile = File(...),
+    session_type: str = Form("match"),
+    player_name: str = Form("Player"),
+    is_doubles: bool = Form(False),
+    render_video: bool = Form(True),
+) -> Dict[str, Any]:
+    """Upload a match/rally/serve video and execute the end-to-end analysis pipeline."""
+    filename = file.filename or f"upload_{int(time.time())}.mp4"
+    clean_type = session_type.lower()
+    if clean_type not in ["match", "rally", "serve"]:
+        clean_type = "match"
+
+    session_id = f"{clean_type}_{int(time.time())}"
+    output_dir = OUTPUTS_DIR / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    video_dest = output_dir / filename
+    contents = await file.read()
+    with open(video_dest, "wb") as f:
+        f.write(contents)
+
+    calib_json = Path("configs/match_clip_1_calib.json")
+    if not calib_json.exists():
+        calib_json = None
+
+    report = process_video(
+        input_path=video_dest,
+        output_dir=output_dir,
+        session_id=session_id,
+        calibration_path=calib_json,
+        render_video=render_video,
+        is_doubles=is_doubles,
+    )
+
+    data = report.model_dump()
+    data["session_id"] = session_id
+    data["session_type"] = clean_type
+    data["player_name"] = player_name
+
+    # Save enriched session.json
+    with open(output_dir / "session.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    return data
 
 
 @app.websocket("/ws/live")
