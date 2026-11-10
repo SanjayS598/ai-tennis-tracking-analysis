@@ -1,6 +1,7 @@
 """FastAPI backend server exposing REST endpoints and WebSocket stream for Tennis AI."""
 
 import asyncio
+from contextlib import asynccontextmanager
 import json
 from pathlib import Path
 import time
@@ -12,11 +13,29 @@ from pydantic import BaseModel
 
 from tennis_ai.core.schemas import CalibrationStatus, CourtCalibration, Point2D
 from tennis_ai.court.geometry import CourtCalibrator, CourtKeypoints
-from tennis_ai.transport.server import EventBroadcaster
+from tennis_ai.transport.server import EventBroadcaster, LiveEventServer
 from tennis_ai.video.process import process_video
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="Tennis AI API", version="0.1.0")
+transport_server = LiveEventServer(host="0.0.0.0", port=8765)
+broadcaster = transport_server.broadcaster
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager: starts background WebSocket transport server on port 8765."""
+    try:
+        await transport_server.start()
+    except Exception as e:
+        print(f"[Transport] Standalone server on port 8765 startup skipped: {e}")
+    yield
+    try:
+        await transport_server.stop()
+    except Exception:
+        pass
+
+
+app = FastAPI(title="Tennis AI API", version="0.1.0", lifespan=lifespan)
 
 # Enable CORS for React frontend
 app.add_middleware(
@@ -27,7 +46,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-broadcaster = EventBroadcaster()
 OUTPUTS_DIR = Path("outputs").resolve()
 SAMPLES_DIR = Path("data/samples").resolve()
 

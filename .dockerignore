@@ -1,0 +1,32 @@
+# Version control & tooling
+.git
+.gitignore
+.github
+.agents
+graphify-out
+
+# Python virtual environment & cache
+.venv
+venv
+ENV
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.coverage
+htmlcov
+
+# Node & Frontend
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# iOS / macOS project files
+ios/
+.DS_Store
+*.swp
+
+# Runtime outputs & logs
+outputs/
+*.log
