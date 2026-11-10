@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from tennis_ai.api.device_discovery import device_manager
 from tennis_ai.core.schemas import CalibrationStatus, CourtCalibration, Point2D
+from tennis_ai.core.session_builder import enrich_session_data
 from tennis_ai.court.geometry import CourtCalibrator, CourtKeypoints
 from tennis_ai.transport.server import EventBroadcaster, LiveEventServer
 from tennis_ai.video.process import process_video
@@ -113,17 +114,20 @@ def _determine_session_type(session_id: str, data: Dict[str, Any]) -> str:
 
 
 @app.get("/api/sessions")
-def list_sessions() -> List[Dict[str, Any]]:
-    """List all analyzed match sessions."""
+def list_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """List analyzed match sessions, optionally filtered per user."""
     sessions = []
     if OUTPUTS_DIR.exists():
         for session_dir in sorted(OUTPUTS_DIR.iterdir()):
-            if session_dir.is_dir():
+            if session_dir.is_dir() and session_dir.name != "profiles":
                 json_path = session_dir / "session.json"
                 if json_path.exists():
                     try:
                         with open(json_path, "r", encoding="utf-8") as f:
                             data = json.load(f)
+                        sess_user = data.get("user_id", "user_sanjay_shankar")
+                        if user_id and sess_user != user_id:
+                            continue
                         events = data.get("events", [])
                         in_count = sum(1 for e in events if e.get("call") == "IN")
                         out_count = sum(1 for e in events if e.get("call") == "OUT")
@@ -133,7 +137,8 @@ def list_sessions() -> List[Dict[str, Any]]:
                             "session_id": session_dir.name,
                             "display_id": data.get("session_id", session_dir.name),
                             "session_type": _determine_session_type(session_dir.name, data),
-                            "player_name": data.get("player_name", "Player 1"),
+                            "player_name": data.get("player_name", "Sanjay Shankar"),
+                            "user_id": sess_user,
                             "created_at": data.get("created_at"),
                             "source_video": data.get("video_metadata", {}).get("source_video"),
                             "duration_sec": data.get("video_metadata", {}).get("duration_sec"),
@@ -152,15 +157,52 @@ def list_sessions() -> List[Dict[str, Any]]:
 
 @app.get("/api/sessions/{session_id}")
 def get_session(session_id: str) -> Dict[str, Any]:
-    """Retrieve full session report JSON."""
+    """Retrieve full session report JSON with step-by-step shots and biomechanics."""
     s_dir = _find_session_dir(session_id)
     if not s_dir:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
 
-    with open(s_dir / "session.json", "r", encoding="utf-8") as f:
+    json_path = s_dir / "session.json"
+    with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
-        data["session_id"] = session_id
-        return data
+    data["session_id"] = session_id
+    data = enrich_session_data(data)
+    try:
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+    return data
+
+
+@app.get("/api/users/{user_id}/profile")
+def get_user_profile(user_id: str) -> Dict[str, Any]:
+    """Return local user profile information."""
+    profiles_dir = OUTPUTS_DIR / "profiles"
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    p_file = profiles_dir / f"{user_id}.json"
+    if p_file.exists():
+        with open(p_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "user_id": user_id,
+        "name": "Sanjay Shankar" if "sanjay" in user_id else "Tennis Player",
+        "handedness": "Right",
+        "play_style": "Aggressive Baseliner",
+        "utr_rating": "9.5",
+    }
+
+
+@app.post("/api/users/{user_id}/profile")
+def update_user_profile(user_id: str, profile: Dict[str, Any]) -> Dict[str, Any]:
+    """Update local user profile information."""
+    profiles_dir = OUTPUTS_DIR / "profiles"
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    p_file = profiles_dir / f"{user_id}.json"
+    profile["user_id"] = user_id
+    with open(p_file, "w", encoding="utf-8") as f:
+        json.dump(profile, f, indent=2)
+    return profile
 
 
 @app.get("/api/sessions/{session_id}/video")
@@ -447,7 +489,8 @@ async def websocket_device_endpoint(websocket: WebSocket) -> None:
 async def upload_and_process_session(
     file: UploadFile = File(...),
     session_type: str = Form("match"),
-    player_name: str = Form("Player"),
+    player_name: str = Form("Sanjay Shankar"),
+    user_id: str = Form("user_sanjay_shankar"),
     is_doubles: bool = Form(False),
     render_video: bool = Form(True),
 ) -> Dict[str, Any]:
@@ -483,6 +526,8 @@ async def upload_and_process_session(
     data["session_id"] = session_id
     data["session_type"] = clean_type
     data["player_name"] = player_name
+    data["user_id"] = user_id
+    data = enrich_session_data(data)
 
     # Save enriched session.json
     with open(output_dir / "session.json", "w", encoding="utf-8") as f:

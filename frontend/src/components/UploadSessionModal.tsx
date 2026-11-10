@@ -1,27 +1,35 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Loader2, Sparkles, AlertCircle, FileVideo, Video } from 'lucide-react';
-import { SessionReport, SessionType } from '../types';
+import { SessionReport, SessionType, UserProfile } from '../types';
 
 interface UploadSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSessionCreated: (session: SessionReport) => void;
+  currentUser?: UserProfile;
 }
 
 export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
   isOpen,
   onClose,
   onSessionCreated,
+  currentUser,
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [sessionType, setSessionType] = useState<SessionType>('match');
-  const [playerName, setPlayerName] = useState<string>('Sanjay Shankar');
+  const [playerName, setPlayerName] = useState<string>(currentUser?.name || 'Sanjay Shankar');
   const [isDoubles, setIsDoubles] = useState<boolean>(false);
   const [renderVideo, setRenderVideo] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [statusStep, setStatusStep] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (currentUser?.name) {
+      setPlayerName(currentUser.name);
+    }
+  }, [currentUser]);
 
   if (!isOpen) return null;
 
@@ -47,6 +55,7 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
     formData.append('file', file);
     formData.append('session_type', sessionType);
     formData.append('player_name', playerName);
+    formData.append('user_id', currentUser?.id || 'user_sanjay_shankar');
     formData.append('is_doubles', String(isDoubles));
     formData.append('render_video', String(renderVideo));
 

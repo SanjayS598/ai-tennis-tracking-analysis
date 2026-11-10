@@ -1,6 +1,21 @@
-import React, { useState } from 'react';
-import { Play, Pause, FastForward, CheckCircle2, XCircle, HelpCircle, Eye, Box, Monitor, Sparkles } from 'lucide-react';
-import { BounceEvent, SessionReport, SessionSummary } from '../types';
+import React, { useState, useRef } from 'react';
+import {
+  Play,
+  Pause,
+  FastForward,
+  CheckCircle2,
+  XCircle,
+  HelpCircle,
+  Eye,
+  Box,
+  Monitor,
+  Sparkles,
+  ChevronRight,
+  Activity,
+  Layers,
+  Info,
+} from 'lucide-react';
+import { BounceEvent, SessionReport, SessionSummary, ShotTrajectory } from '../types';
 import { Court2DMinimap } from './Court2DMinimap';
 import { Tennis3DVisualizer } from './Tennis3DVisualizer';
 
@@ -8,43 +23,120 @@ interface MatchReviewProps {
   session: SessionReport | null;
   sessionsList: SessionSummary[];
   onSelectSession: (sessionId: string) => void;
+  onOpenUpload?: () => void;
 }
 
 export const MatchReview: React.FC<MatchReviewProps> = ({
   session,
   sessionsList,
   onSelectSession,
+  onOpenUpload,
 }) => {
   const [selectedEvent, setSelectedEvent] = useState<BounceEvent | null>(null);
+  const [activeShotIndex, setActiveShotIndex] = useState<number>(0);
   const [filter, setFilter] = useState<'ALL' | 'IN' | 'OUT' | 'UNCERTAIN'>('ALL');
   const [viewMode, setViewMode] = useState<'3D' | 'SPLIT'>('3D');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const width = session?.video_metadata?.width ?? 1920;
-  const height = session?.video_metadata?.height ?? 1080;
-  const fps = session?.video_metadata?.fps ?? 30.0;
-  const duration = session?.video_metadata?.duration_sec ?? 3.1;
-  const totalFrames = session?.video_metadata?.total_frames ?? 93;
-  const sessionId = session?.session_id ?? 'session_demo_match';
+  if (!session) {
+    return (
+      <div style={{ maxWidth: '800px', margin: '60px auto', padding: '24px', textAlign: 'center' }}>
+        <div
+          className="apple-card"
+          style={{
+            padding: '48px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '16px',
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              background: 'rgba(48, 209, 88, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#30d158',
+            }}
+          >
+            <Box size={28} />
+          </div>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+            No Match Session Selected
+          </h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '420px', margin: 0, lineHeight: 1.6 }}>
+            Select a session from your session history or upload a video to inspect 3D Hawk-Eye ball trajectories and line call verdicts.
+          </p>
+          {onOpenUpload && (
+            <button
+              onClick={onOpenUpload}
+              className="liquid-glass-btn-primary"
+              style={{
+                marginTop: '12px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: 700,
+                borderRadius: '9999px',
+                background: '#30d158',
+                color: '#000000',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Upload Tennis Video
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-  const events = session?.events || [];
+  const width = session.video_metadata?.width ?? 1920;
+  const height = session.video_metadata?.height ?? 1080;
+  const fps = session.video_metadata?.fps ?? 30.0;
+  const duration = session.video_metadata?.duration_sec ?? 0;
+  const totalFrames = session.video_metadata?.total_frames ?? 0;
+  const sessionId = session.session_id;
+
+  const shots: ShotTrajectory[] = session.shots || [];
+  const events: BounceEvent[] = session.events || [];
+
+  const inCount = shots.length > 0
+    ? shots.filter((s) => s.call === 'IN').length
+    : events.filter((e) => e.call === 'IN').length;
+  const outCount = shots.length > 0
+    ? shots.filter((s) => s.call === 'OUT').length
+    : events.filter((e) => e.call === 'OUT').length;
+  const uncertainCount = shots.length > 0
+    ? shots.filter((s) => s.call === 'UNCERTAIN').length
+    : events.filter((e) => e.call === 'UNCERTAIN').length;
+
   const filteredEvents = events.filter((e) => {
     if (filter === 'ALL') return true;
     return e.call === filter;
   });
 
-  const inCount = events.filter((e) => e.call === 'IN').length;
-  const outCount = events.filter((e) => e.call === 'OUT').length;
-  const uncertainCount = events.filter((e) => e.call === 'UNCERTAIN').length;
+  const handleSelectShot = (idx: number) => {
+    setActiveShotIndex(idx);
+    const targetShot = shots[idx];
+    if (targetShot && videoRef.current) {
+      videoRef.current.currentTime = targetShot.timestamp_ms / 1000.0;
+    }
+  };
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '16px 24px' }}>
-      {/* Session Metrics Bar (Apple Minimalist Cards) */}
+      {/* Session Metrics Bar */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
           gap: '14px',
-          marginBottom: '24px',
+          marginBottom: '20px',
         }}
       >
         <div className="apple-card" style={{ padding: '16px 20px' }}>
@@ -89,18 +181,34 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
         </div>
       </div>
 
-      {/* Floating Liquid Glass View Switcher */}
+      {/* Floating Liquid Glass View Switcher & Step Control Header */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '20px',
+          marginBottom: '16px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Sparkles size={16} color="#30d158" />
-          <span style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>Hawk-Eye Replay Studio</span>
+          <span style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>
+            Hawk-Eye Replay Studio
+          </span>
+          {shots.length > 0 && (
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: '9999px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: '#cbd5e1',
+              }}
+            >
+              {shots.length} Shot{shots.length === 1 ? '' : 's'} Detected
+            </span>
+          )}
         </div>
 
         <div className="glass-segmented">
@@ -120,17 +228,93 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
         </div>
       </div>
 
+      {/* Shot Selector Bar (Step-by-Step for Current Session) */}
+      {shots.length > 0 && (
+        <div
+          className="apple-card"
+          style={{
+            padding: '12px 18px',
+            marginBottom: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            overflowX: 'auto',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 'fit-content' }}>
+            <Activity size={15} color="#0a84ff" />
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase' }}>
+              Select Shot:
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '2px' }}>
+            {shots.map((shot, idx) => {
+              const isSelected = idx === activeShotIndex;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleSelectShot(idx)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '9999px',
+                    background: isSelected ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                    border: isSelected ? '1px solid rgba(255, 255, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>Shot #{shot.shot_number || idx + 1}</span>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {shot.stroke_type}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      borderRadius: '9999px',
+                      background:
+                        shot.call === 'IN'
+                          ? 'rgba(48, 209, 88, 0.25)'
+                          : shot.call === 'OUT'
+                          ? 'rgba(255, 69, 58, 0.25)'
+                          : 'rgba(255, 159, 10, 0.25)',
+                      color: shot.call === 'IN' ? '#30d158' : shot.call === 'OUT' ? '#ff453a' : '#ff9f0a',
+                    }}
+                  >
+                    {shot.call}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Main View Area */}
       {viewMode === '3D' ? (
         <div style={{ marginBottom: '24px' }}>
           <Tennis3DVisualizer
+            session={session}
+            shots={shots}
+            activeShotIndex={activeShotIndex}
+            onSelectShotIndex={setActiveShotIndex}
             events={events}
             selectedEvent={selectedEvent}
             onSelectEvent={(ev) => setSelectedEvent(ev)}
           />
         </div>
       ) : (
-        /* Video + Minimap Split Layout (Apple Style) */
+        /* Video + Minimap Split Layout */
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 310px 1fr', gap: '20px', marginBottom: '24px' }}>
           {/* Left: Video Player */}
           <div className="apple-card" style={{ padding: '20px' }}>
@@ -155,6 +339,7 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
               }}
             >
               <video
+                ref={videoRef}
                 src={`/api/sessions/${sessionId}/video`}
                 controls
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
