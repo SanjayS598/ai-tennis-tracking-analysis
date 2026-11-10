@@ -97,17 +97,17 @@ export const App: React.FC = () => {
     setCurrentSession(DEMO_FALLBACK_SESSION);
   };
 
+  const fetchDevices = () => {
+    fetch('/api/devices')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setDevices(data);
+      })
+      .catch(() => {});
+  };
+
   // Poll device status
   useEffect(() => {
-    const fetchDevices = () => {
-      fetch('/api/devices')
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data) setDevices(data);
-        })
-        .catch(() => {});
-    };
-
     fetchDevices();
     const interval = setInterval(fetchDevices, 10000);
     return () => clearInterval(interval);
@@ -189,8 +189,9 @@ export const App: React.FC = () => {
     );
   }
 
-  const isIPhoneConnected = devices?.iphone?.connected ?? true;
-  const isWatchConnected = devices?.watch?.connected ?? true;
+  const isIPhoneConnected = devices?.iphone?.connected ?? false;
+  const isWatchConnected = devices?.watch?.connected ?? false;
+  const isSearching = !isIPhoneConnected && !isWatchConnected;
 
   return (
     <ErrorBoundary>
@@ -308,9 +309,11 @@ export const App: React.FC = () => {
                 }}
                 title="Apple Watch & iPhone companion telemetry"
               >
-                <Smartphone size={13} color={isIPhoneConnected ? '#30d158' : '#6b7280'} />
-                <Watch size={13} color={isWatchConnected ? '#30d158' : '#6b7280'} />
-                <span style={{ fontSize: '11px', color: '#30d158' }}>Connected</span>
+                <Smartphone size={13} color={isIPhoneConnected ? '#30d158' : '#ff9f0a'} />
+                <Watch size={13} color={isWatchConnected ? '#30d158' : '#86868b'} />
+                <span style={{ fontSize: '11px', color: isSearching ? '#ff9f0a' : '#30d158' }}>
+                  {isSearching ? 'Devices: Searching...' : (devices?.simulated_mode ? 'Demo Hardware' : 'Hardware Connected')}
+                </span>
               </div>
 
               <button onClick={() => setIsUploadOpen(true)} className="glass-btn-prominent" style={{ padding: '8px 18px', fontSize: '13px' }}>
@@ -361,6 +364,7 @@ export const App: React.FC = () => {
           isOpen={isDeviceModalOpen}
           onClose={() => setIsDeviceModalOpen(false)}
           devices={devices}
+          onRefreshDevices={fetchDevices}
           onToggleDeviceSimulation={handleToggleDeviceSimulation}
         />
       </div>

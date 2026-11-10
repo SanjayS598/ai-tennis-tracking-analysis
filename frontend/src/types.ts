@@ -68,6 +68,8 @@ export interface SessionSummary {
 export interface DeviceInfo {
   name: string;
   connected: boolean;
+  status?: 'connected' | 'searching' | 'armed' | 'simulated' | 'offline';
+  transport?: string;
   mode?: string;
   camera_position?: string;
   haptic_engine?: string;
@@ -76,11 +78,21 @@ export interface DeviceInfo {
   battery_pct: number;
   latency_ms?: number;
   workout_active?: boolean;
+  details?: string;
+  is_simulated?: boolean;
 }
 
 export interface DeviceStatusResponse {
   iphone: DeviceInfo;
   watch: DeviceInfo;
+  local_lan_ip?: string;
+  pairing_url?: string;
+  discovery_active?: boolean;
+  hardware_found?: {
+    usb: Array<any>;
+    bonjour: Array<any>;
+  };
+  simulated_mode?: boolean;
   live_subscribers: number;
   server_time_ms: number;
 }
