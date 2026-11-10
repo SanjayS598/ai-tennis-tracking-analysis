@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.tennisai.recorder.watchkitapp</string>
+	<key>CFBundleName</key>
+	<string>Tennis Watch</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>WKWatchKitApp</key>
+	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Tennis AI tracks your heart rate and calories burned during tennis sessions.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Tennis AI saves your tennis match workout into Apple Health.</string>
+</dict>
+</plist>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.tennisai.recorder</string>
+	<key>CFBundleName</key>
+	<string>Tennis AI</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Tennis AI requires camera access to track tennis ball trajectory and calibrate court lines.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Tennis AI connects to your local Mac inference engine over Wi-Fi for real-time line calls.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Tennis AI uses the microphone to detect ball impact sound signatures.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>processing</string>
+	</array>
+</dict>
+</plist>
