@@ -77,7 +77,26 @@ python -m tennis_ai.transport.server --port 8765 --synthetic-interval 2.0
   - `OUT` $\to$ `.failure` (Double alert vibration)
   - `UNCERTAIN` $\to$ `.retry` (Subtle reminder vibration)
 
-### E. Biomechanics & Shot Classification
+### E. Web UI & Full-Stack Platform
+Launch the complete full-stack platform serving the React analytics dashboard, REST API, and WebSocket streaming on a single port:
+
+```bash
+python -m tennis_ai.api.app
+```
+Then open [http://localhost:8000](http://localhost:8000) in your browser.
+
+**Frontend Features:**
+- **Match Review Studio:** Play synchronized video alongside an interactive 2D metric ITF court minimap. Clicking any bounce on the minimap jumps the video directly to that frame.
+- **Interactive Court Calibrator:** Click 4 corner baseline points on an image with instant sub-pixel reprojection error (RMSE) feedback.
+- **Live On-Court & Watch Monitor:** WebSocket monitor with large visual line call alerts, audio tone cues, and measured latency counters.
+- **Biomechanics Studio:** Visual shot distribution (Forehands, Backhands, Serves) and measured joint kinematics (elbow extension, stance width).
+
+For frontend live development with Vite hot-reloading:
+```bash
+cd frontend && npm run dev
+```
+
+### F. Biomechanics & Shot Classification
 - 33 3D body landmark extraction via MediaPipe Pose.
 - Invariant kinetic feature normalizer (scaled by torso height, centered at hips).
 - 1D-CNN + Bidirectional GRU PyTorch classifier (`TemporalStrokeClassifier`) recognizing `Forehand`, `Backhand`, and `Serve`.

@@ -44,6 +44,11 @@ htmlcov/
 *.swp
 *.swo
 
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+dist/
+
 # Project outputs & samples
 outputs/
 data/samples/
