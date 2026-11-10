@@ -16,6 +16,7 @@ dependencies = [
     "opencv-python>=4.9.0.80",
     "pydantic>=2.6.0",
     "torch>=2.2.0",
+    "websockets>=13.0",
 ]
 
 [project.optional-dependencies]
