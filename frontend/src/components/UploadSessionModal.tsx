@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, CheckCircle2, Loader2, Sparkles, AlertCircle, FileVideo } from 'lucide-react';
+import { Upload, X, Loader2, Sparkles, AlertCircle, FileVideo, Video } from 'lucide-react';
 import { SessionReport, SessionType } from '../types';
 
 interface UploadSessionModalProps {
@@ -93,24 +93,25 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(3, 7, 18, 0.85)',
-        backdropFilter: 'blur(16px)',
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 100,
         padding: '24px',
       }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isProcessing) onClose();
+      }}
     >
       <div
+        className="liquid-glass-panel"
         style={{
-          background: '#0b0f19',
-          border: '1px solid #1f2937',
-          borderRadius: '20px',
           width: '100%',
           maxWidth: '560px',
           padding: '32px',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
           position: 'relative',
         }}
       >
@@ -118,20 +119,19 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
         {!isProcessing && (
           <button
             onClick={onClose}
+            className="glass-btn"
             style={{
               position: 'absolute',
               top: '20px',
               right: '20px',
-              background: '#1f2937',
-              border: 'none',
-              borderRadius: '8px',
-              width: 32,
-              height: 32,
+              width: 34,
+              height: 34,
+              padding: 0,
+              borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#94a3b8',
-              cursor: 'pointer',
+              color: '#86868b',
             }}
           >
             <X size={16} />
@@ -139,61 +139,74 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <Sparkles size={20} color="#10b981" />
-          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '10px',
+              background: 'rgba(48, 209, 88, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Sparkles size={18} color="#30d158" />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: '#f5f5f7', letterSpacing: '-0.02em' }}>
             Upload Match & Session Footage
           </h2>
         </div>
-        <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.5' }}>
-          Upload stationary baseline footage. Tennis AI tracks the ball, calls every line (`IN`/`OUT`), and reconstructs the 3D trajectory.
+        <p style={{ color: '#86868b', fontSize: '13px', margin: '0 0 24px 0', lineHeight: '1.5' }}>
+          Upload stationary baseline footage. Tennis AI tracks the ball, calls every line (<code style={{ color: '#30d158' }}>IN</code> / <code style={{ color: '#ff453a' }}>OUT</code>), and reconstructs the 3D trajectory.
         </p>
 
         {isProcessing ? (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
             <div
               style={{
-                width: 60,
-                height: 60,
+                width: 64,
+                height: 64,
                 borderRadius: '50%',
-                background: 'rgba(16, 185, 129, 0.15)',
+                background: 'rgba(48, 209, 88, 0.12)',
+                border: '1px solid rgba(48, 209, 88, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 20px',
               }}
             >
-              <Loader2 size={32} color="#10b981" className="animate-spin" />
+              <Loader2 size={32} color="#30d158" className="animate-spin" />
             </div>
-            <h3 style={{ fontSize: '17px', fontWeight: 700, margin: '0 0 8px 0', color: '#ffffff' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 8px 0', color: '#f5f5f7', letterSpacing: '-0.01em' }}>
               Analyzing Tennis Session...
             </h3>
-            <p style={{ fontSize: '13px', color: '#34d399', fontWeight: 600, minHeight: '36px' }}>
+            <p style={{ fontSize: '13px', color: '#30d158', fontWeight: 500, minHeight: '36px', lineHeight: 1.4 }}>
               {statusStep}
             </p>
-            <div style={{ width: '100%', height: '6px', background: '#1f2937', borderRadius: '3px', overflow: 'hidden', marginTop: '16px' }}>
+            <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden', marginTop: '20px' }}>
               <div
                 style={{
-                  width: '70%',
+                  width: '75%',
                   height: '100%',
-                  background: 'linear-gradient(90deg, #10b981 0%, #38bdf8 100%)',
-                  borderRadius: '3px',
+                  background: 'linear-gradient(90deg, #30d158 0%, #0a84ff 100%)',
+                  borderRadius: '999px',
                 }}
               />
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* File Drag Drop Zone */}
             <div
               onClick={() => fileInputRef.current?.click()}
               style={{
-                border: '2px dashed #374151',
-                borderRadius: '12px',
-                padding: '28px',
+                border: file ? '1.5px solid rgba(48, 209, 88, 0.4)' : '1.5px dashed rgba(255, 255, 255, 0.16)',
+                borderRadius: '16px',
+                padding: '28px 20px',
                 textAlign: 'center',
                 cursor: 'pointer',
-                background: file ? 'rgba(16, 185, 129, 0.08)' : 'rgba(17, 24, 39, 0.6)',
-                transition: 'all 0.2s',
+                background: file ? 'rgba(48, 209, 88, 0.05)' : 'rgba(255, 255, 255, 0.02)',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
               <input
@@ -203,53 +216,45 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
-              <FileVideo size={36} color={file ? '#10b981' : '#6b7280'} style={{ margin: '0 auto 10px' }} />
+              <FileVideo size={36} color={file ? '#30d158' : '#86868b'} style={{ margin: '0 auto 10px', display: 'block' }} />
               {file ? (
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>{file.name}</div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#f5f5f7' }}>{file.name}</div>
+                  <div style={{ fontSize: '12px', color: '#86868b', marginTop: '4px' }}>
                     {(file.size / (1024 * 1024)).toFixed(1)} MB • Click to replace
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#e2e8f0' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: '#f5f5f7' }}>
                     Click or drag tennis video clip here
                   </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  <div style={{ fontSize: '12px', color: '#86868b', marginTop: '4px' }}>
                     Supports MP4, MOV (1080p @ 30/60 FPS recommended)
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Session Type Selector */}
+            {/* Session Type Selector using Apple Segmented Glass Picker */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '8px' }}>
-                SESSION CATEGORY
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#86868b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                Session Category
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              <div className="glass-segmented" style={{ width: '100%', display: 'flex' }}>
                 {(
                   [
-                    { id: 'match', label: '🏆 Match' },
-                    { id: 'rally', label: '🎾 Rally' },
-                    { id: 'serve', label: '⚡ Serve' },
+                    { id: 'match', label: 'Match' },
+                    { id: 'rally', label: 'Rally' },
+                    { id: 'serve', label: 'Serve' },
                   ] as const
                 ).map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => setSessionType(t.id)}
-                    style={{
-                      padding: '10px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      border: sessionType === t.id ? '1px solid #10b981' : '1px solid #374151',
-                      background: sessionType === t.id ? 'rgba(16, 185, 129, 0.2)' : '#111827',
-                      color: sessionType === t.id ? '#34d399' : '#94a3b8',
-                      cursor: 'pointer',
-                    }}
+                    className={sessionType === t.id ? 'active' : ''}
+                    style={{ flex: 1, textAlign: 'center', padding: '8px 12px' }}
                   >
                     {t.label}
                   </button>
@@ -259,8 +264,8 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
 
             {/* Player Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
-                PLAYER NAME
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#86868b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
+                Player Name
               </label>
               <input
                 type="text"
@@ -268,14 +273,15 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
                 onChange={(e) => setPlayerName(e.target.value)}
                 style={{
                   width: '100%',
-                  background: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
                   padding: '10px 14px',
-                  color: '#ffffff',
+                  color: '#f5f5f7',
                   fontSize: '14px',
                   outline: 'none',
                   boxSizing: 'border-box',
+                  transition: 'border 0.2s',
                 }}
               />
             </div>
@@ -287,9 +293,9 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
                 id="renderVideo"
                 checked={renderVideo}
                 onChange={(e) => setRenderVideo(e.target.checked)}
-                style={{ cursor: 'pointer', accentColor: '#10b981' }}
+                style={{ cursor: 'pointer', accentColor: '#30d158', width: 16, height: 16 }}
               />
-              <label htmlFor="renderVideo" style={{ fontSize: '13px', color: '#cbd5e1', cursor: 'pointer' }}>
+              <label htmlFor="renderVideo" style={{ fontSize: '13px', color: '#86868b', cursor: 'pointer' }}>
                 Render 1080p annotated video overlay (TrackNet trail & court wireframe)
               </label>
             </div>
@@ -300,12 +306,12 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid #dc2626',
-                  borderRadius: '8px',
+                  background: 'rgba(255, 69, 58, 0.12)',
+                  border: '1px solid rgba(255, 69, 58, 0.28)',
+                  borderRadius: '12px',
                   padding: '10px 14px',
                   fontSize: '12px',
-                  color: '#f87171',
+                  color: '#ff453a',
                 }}
               >
                 <AlertCircle size={16} />
@@ -315,24 +321,20 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
 
             <button
               type="submit"
+              className="glass-btn-prominent"
               style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '14px',
-                fontSize: '15px',
-                fontWeight: 800,
-                cursor: 'pointer',
+                width: '100%',
+                padding: '12px 20px',
+                fontSize: '14px',
+                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                marginTop: '8px',
-                boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)',
+                marginTop: '4px',
               }}
             >
-              <Upload size={18} /> Analyze Video with AI
+              <Upload size={16} /> Analyze Video with AI
             </button>
           </form>
         )}

@@ -574,16 +574,16 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
   }, [isPlaying, playbackSpeed, activePreset, cameraMode, impactHappened]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '580px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #1f2937', background: '#060b14' }}>
+    <div style={{ position: 'relative', width: '100%', height: '580px', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.08)', background: '#000000' }}>
       {/* 3D Canvas Mount Point */}
       <div ref={mountRef} style={{ width: '100%', height: '100%', cursor: 'grab' }} />
 
-      {/* Top Overlay: Speed Meter & Hawk-Eye Verdict */}
+      {/* Top Overlay: Speed Meter & Hawk-Eye Verdict (Liquid Glass) */}
       <div
         style={{
           position: 'absolute',
-          top: '16px',
-          left: '16px',
+          top: '20px',
+          left: '20px',
           display: 'flex',
           gap: '12px',
           alignItems: 'center',
@@ -592,20 +592,16 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
       >
         {/* Speed HUD */}
         <div
+          className="liquid-glass-panel"
           style={{
-            background: 'rgba(11, 15, 25, 0.85)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '10px',
-            padding: '10px 16px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            padding: '10px 18px',
           }}
         >
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#0a84ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Radar Velocity
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '2px' }}>
-            <span style={{ fontSize: '26px', fontWeight: 900, color: '#ffffff', fontFamily: 'JetBrains Mono, monospace' }}>
+            <span style={{ fontSize: '26px', fontWeight: 800, color: '#ffffff', fontFamily: 'system-ui, -apple-system' }}>
               {ballSpeedDisplay}
             </span>
             <span style={{ fontSize: '12px', fontWeight: 700, color: '#94a3b8' }}>MPH</span>
@@ -614,57 +610,55 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
 
         {/* Live Call Decision Badge */}
         <div
+          className="liquid-glass-panel"
           style={{
+            padding: '10px 20px',
             background:
               activePreset.call === 'IN'
-                ? 'rgba(16, 185, 129, 0.2)'
-                : 'rgba(239, 68, 68, 0.2)',
-            backdropFilter: 'blur(10px)',
-            border:
+                ? 'rgba(48, 209, 88, 0.12)'
+                : 'rgba(255, 69, 58, 0.12)',
+            borderColor:
               activePreset.call === 'IN'
-                ? '1px solid rgba(16, 185, 129, 0.5)'
-                : '1px solid rgba(239, 68, 68, 0.5)',
-            borderRadius: '10px',
-            padding: '10px 18px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                ? 'rgba(48, 209, 88, 0.35)'
+                : 'rgba(255, 69, 58, 0.35)',
           }}
         >
-          <div style={{ fontSize: '10px', fontWeight: 700, color: activePreset.call === 'IN' ? '#34d399' : '#f87171', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: activePreset.call === 'IN' ? '#30d158' : '#ff453a', textTransform: 'uppercase' }}>
             Hawk-Eye Verdict
           </div>
           <div
             style={{
-              fontSize: '22px',
-              fontWeight: 900,
-              color: activePreset.call === 'IN' ? '#34d399' : '#f87171',
+              fontSize: '20px',
+              fontWeight: 800,
+              color: activePreset.call === 'IN' ? '#30d158' : '#ff453a',
               marginTop: '2px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
             }}
           >
-            {activePreset.call === 'IN' ? <ShieldCheck size={22} /> : <Zap size={22} />}
+            {activePreset.call === 'IN' ? <ShieldCheck size={20} /> : <Zap size={20} />}
             {activePreset.call}
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#cbd5e1', marginLeft: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginLeft: '6px' }}>
               ({activePreset.marginCm > 0 ? `+${activePreset.marginCm}cm inside` : `${Math.abs(activePreset.marginCm)}cm wide`})
             </span>
           </div>
         </div>
       </div>
 
-      {/* Top Right: Preset Selector */}
+      {/* Top Right: Preset Selector (Liquid Glass Capsule List) */}
       <div
         style={{
           position: 'absolute',
-          top: '16px',
-          right: '16px',
+          top: '20px',
+          right: '20px',
           display: 'flex',
           flexDirection: 'column',
           gap: '6px',
         }}
       >
         <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px', textAlign: 'right' }}>
-          Shot Trajectory Presets
+          Trajectory Presets
         </div>
         {SHOT_PRESETS.map((p) => {
           const isActive = activePreset.id === p.id;
@@ -673,22 +667,22 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
               key={p.id}
               onClick={() => setActivePreset(p)}
               style={{
-                background: isActive ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(17, 24, 39, 0.8)',
-                backdropFilter: 'blur(8px)',
-                border: isActive ? '1px solid #34d399' : '1px solid rgba(255, 255, 255, 0.08)',
+                background: isActive ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.04)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: isActive ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
                 color: '#ffffff',
-                borderRadius: '8px',
-                padding: '8px 14px',
+                borderRadius: '9999px',
+                padding: '7px 16px',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                textAlign: 'left',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '12px',
                 transition: 'all 0.2s',
-                boxShadow: isActive ? '0 0 16px rgba(16, 185, 129, 0.4)' : 'none',
+                boxShadow: isActive ? 'inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 16px rgba(0,0,0,0.4)' : 'none',
               }}
             >
               <span>{p.name}</span>
@@ -696,10 +690,10 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
                 style={{
                   fontSize: '10px',
                   fontWeight: 800,
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: p.call === 'IN' ? 'rgba(52, 211, 153, 0.25)' : 'rgba(248, 113, 113, 0.25)',
-                  color: p.call === 'IN' ? '#34d399' : '#f87171',
+                  padding: '2px 7px',
+                  borderRadius: '9999px',
+                  background: p.call === 'IN' ? 'rgba(48, 209, 88, 0.2)' : 'rgba(255, 69, 58, 0.2)',
+                  color: p.call === 'IN' ? '#30d158' : '#ff453a',
                 }}
               >
                 {p.call}
@@ -709,34 +703,30 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
         })}
       </div>
 
-      {/* Bottom Floating Control Bar */}
+      {/* Bottom Floating Control Dock (Apple Liquid Glass Capsule) */}
       <div
+        className="liquid-glass-capsule"
         style={{
           position: 'absolute',
-          bottom: '16px',
+          bottom: '20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: 'rgba(11, 15, 25, 0.92)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '14px',
-          padding: '8px 18px',
+          padding: '6px 18px',
           display: 'flex',
           alignItems: 'center',
-          gap: '16px',
-          boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+          gap: '14px',
         }}
       >
         {/* Play/Pause */}
         <button
           onClick={() => setIsPlaying(!isPlaying)}
           style={{
-            background: isPlaying ? '#1f2937' : '#10b981',
+            background: isPlaying ? 'rgba(255, 255, 255, 0.1)' : '#30d158',
             color: '#ffffff',
             border: 'none',
-            borderRadius: '8px',
-            width: 36,
-            height: 36,
+            borderRadius: '50%',
+            width: 32,
+            height: 32,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -744,7 +734,7 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
           }}
           title={isPlaying ? 'Pause' : 'Play'}
         >
-          {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
         </button>
 
         {/* Replay */}
@@ -755,12 +745,12 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
             setImpactHappened(false);
           }}
           style={{
-            background: '#1f2937',
-            color: '#94a3b8',
+            background: 'rgba(255, 255, 255, 0.08)',
+            color: '#cbd5e1',
             border: 'none',
-            borderRadius: '8px',
-            width: 36,
-            height: 36,
+            borderRadius: '50%',
+            width: 32,
+            height: 32,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -768,18 +758,17 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
           }}
           title="Replay Shot"
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={14} />
         </button>
 
-        <div style={{ width: 1, height: 24, background: '#374151' }} />
+        <div style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
 
         {/* Camera Views */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', marginRight: '4px', fontWeight: 600 }}>Camera:</span>
+        <div className="glass-segmented">
           {(
             [
               { id: 'BROADCAST', label: 'Broadcast', icon: Video },
-              { id: 'HAWKEYE', label: 'Hawk-Eye Close', icon: Crosshair },
+              { id: 'HAWKEYE', label: 'Hawk-Eye', icon: Crosshair },
               { id: 'UMPIRE', label: 'Umpire', icon: Eye },
               { id: 'BASELINE', label: 'POV', icon: Target },
             ] as const
@@ -790,46 +779,25 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
               <button
                 key={c.id}
                 onClick={() => setCameraMode(c.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  background: isSelected ? '#10b981' : '#1f2937',
-                  color: isSelected ? '#ffffff' : '#94a3b8',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '6px 10px',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'background 0.2s',
-                }}
+                className={`glass-segmented-item ${isSelected ? 'active' : ''}`}
+                style={{ padding: '5px 12px', fontSize: '11px' }}
               >
-                <Icon size={13} /> {c.label}
+                <Icon size={12} /> {c.label}
               </button>
             );
           })}
         </div>
 
-        <div style={{ width: 1, height: 24, background: '#374151' }} />
+        <div style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
 
         {/* Speed Controls */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', marginRight: '4px', fontWeight: 600 }}>Speed:</span>
+        <div className="glass-segmented">
           {[0.25, 0.5, 1.0, 2.0].map((s) => (
             <button
               key={s}
               onClick={() => setPlaybackSpeed(s)}
-              style={{
-                background: playbackSpeed === s ? '#3b82f6' : '#1f2937',
-                color: playbackSpeed === s ? '#ffffff' : '#94a3b8',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '4px 8px',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
+              className={`glass-segmented-item ${playbackSpeed === s ? 'active' : ''}`}
+              style={{ padding: '4px 10px', fontSize: '11px' }}
             >
               {s}x
             </button>

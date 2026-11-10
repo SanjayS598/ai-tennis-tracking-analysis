@@ -37,120 +37,90 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
   const uncertainCount = events.filter((e) => e.call === 'UNCERTAIN').length;
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px' }}>
-      {/* Session Header Stats Bar */}
+    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '16px 24px' }}>
+      {/* Session Metrics Bar (Apple Minimalist Cards) */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '12px',
-          marginBottom: '20px',
+          gap: '14px',
+          marginBottom: '24px',
         }}
       >
-        <div style={{ background: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1f2937' }}>
+        <div className="apple-card" style={{ padding: '16px 20px' }}>
           <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Session ID</div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#f3f4f6', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#f3f4f6', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {sessionId}
           </div>
         </div>
 
-        <div style={{ background: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1f2937' }}>
+        <div className="apple-card" style={{ padding: '16px 20px' }}>
           <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Video Source</div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#f3f4f6', marginTop: '2px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#f3f4f6', marginTop: '4px' }}>
             {width}x{height} @ {fps.toFixed(0)} FPS
           </div>
         </div>
 
-        <div style={{ background: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-          <div style={{ fontSize: '11px', color: '#34d399', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="apple-card" style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: '#30d158', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <CheckCircle2 size={12} /> IN Calls
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#34d399', marginTop: '2px' }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#30d158', marginTop: '2px' }}>
             {inCount}
           </div>
         </div>
 
-        <div style={{ background: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-          <div style={{ fontSize: '11px', color: '#f87171', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="apple-card" style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: '#ff453a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <XCircle size={12} /> OUT Calls
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#f87171', marginTop: '2px' }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#ff453a', marginTop: '2px' }}>
             {outCount}
           </div>
         </div>
 
-        <div style={{ background: '#0b0f19', padding: '14px 18px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-          <div style={{ fontSize: '11px', color: '#fbbf24', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div className="apple-card" style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: '#ff9f0a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <HelpCircle size={12} /> UNCERTAIN
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#fbbf24', marginTop: '2px' }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#ff9f0a', marginTop: '2px' }}>
             {uncertainCount}
           </div>
         </div>
       </div>
 
-      {/* View Mode Toggle Bar */}
+      {/* Floating Liquid Glass View Switcher */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px',
-          background: '#0b0f19',
-          padding: '10px 18px',
-          borderRadius: '12px',
-          border: '1px solid #1f2937',
+          marginBottom: '20px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sparkles size={18} color="#10b981" />
-          <span style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Display Mode</span>
+          <Sparkles size={16} color="#30d158" />
+          <span style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>Hawk-Eye Replay Studio</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="glass-segmented">
           <button
             onClick={() => setViewMode('3D')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              background: viewMode === '3D' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#1f2937',
-              color: viewMode === '3D' ? '#ffffff' : '#94a3b8',
-              cursor: 'pointer',
-              boxShadow: viewMode === '3D' ? '0 0 12px rgba(16, 185, 129, 0.4)' : 'none',
-            }}
+            className={`glass-segmented-item ${viewMode === '3D' ? 'active' : ''}`}
           >
-            <Box size={16} /> 3D Hawk-Eye Stadium (Three.js)
+            <Box size={14} /> 3D Hawk-Eye Stadium
           </button>
 
           <button
             onClick={() => setViewMode('SPLIT')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              border: 'none',
-              background: viewMode === 'SPLIT' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#1f2937',
-              color: viewMode === 'SPLIT' ? '#ffffff' : '#94a3b8',
-              cursor: 'pointer',
-              boxShadow: viewMode === 'SPLIT' ? '0 0 12px rgba(16, 185, 129, 0.4)' : 'none',
-            }}
+            className={`glass-segmented-item ${viewMode === 'SPLIT' ? 'active' : ''}`}
           >
-            <Monitor size={16} /> Video & 2D Minimap
+            <Monitor size={14} /> Video & 2D Minimap
           </button>
         </div>
       </div>
 
-      {/* Dynamic View Area */}
+      {/* Main View Area */}
       {viewMode === '3D' ? (
         <div style={{ marginBottom: '24px' }}>
           <Tennis3DVisualizer
@@ -160,13 +130,13 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
           />
         </div>
       ) : (
-        /* Video + Minimap Split Layout */
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 320px 1fr', gap: '20px', marginBottom: '24px' }}>
+        /* Video + Minimap Split Layout (Apple Style) */
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 310px 1fr', gap: '20px', marginBottom: '24px' }}>
           {/* Left: Video Player */}
-          <div style={{ background: '#0b0f19', padding: '16px', borderRadius: '14px', border: '1px solid #1f2937' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Eye size={18} color="#10b981" /> Annotated Match Playback
+          <div className="apple-card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Eye size={16} color="#30d158" /> Annotated Match Playback
               </h3>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>
                 {duration.toFixed(1)}s ({totalFrames} frames)
@@ -179,8 +149,9 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                 width: '100%',
                 aspectRatio: '16/9',
                 background: '#000000',
-                borderRadius: '8px',
+                borderRadius: '12px',
                 overflow: 'hidden',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
               }}
             >
               <video
@@ -194,43 +165,35 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
             </div>
 
             <div style={{ marginTop: '14px', fontSize: '12px', color: '#94a3b8', lineHeight: '1.5' }}>
-              Video overlay includes: (1) TrackNet deep neural network ball trajectory trail, (2) Calibrated court wireframe, (3) Sub-frame bounce location ring.
+              1080p overlay showing TrackNet deep neural network ball trajectory trail and sub-frame bounce contact circles.
             </div>
           </div>
 
           {/* Center: 2D Metric Court Minimap */}
-          <div style={{ background: '#0b0f19', padding: '16px', borderRadius: '14px', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 12px 0', alignSelf: 'flex-start' }}>
+          <div className="apple-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 14px 0', alignSelf: 'flex-start' }}>
               ITF 2D Metric Court
             </h3>
             <Court2DMinimap
               events={events}
               selectedEvent={selectedEvent}
               onSelectEvent={(ev) => setSelectedEvent(ev)}
-              width={280}
-              height={520}
+              width={270}
+              height={500}
             />
           </div>
 
           {/* Right: Bounce Events Log */}
-          <div style={{ background: '#0b0f19', padding: '16px', borderRadius: '14px', border: '1px solid #1f2937', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0 }}>Bounce Events ({events.length})</h3>
-              <div style={{ display: 'flex', gap: '4px' }}>
+          <div className="apple-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>Bounces ({events.length})</h3>
+              <div className="glass-segmented" style={{ padding: '2px' }}>
                 {(['ALL', 'IN', 'OUT', 'UNCERTAIN'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setFilter(mode)}
-                    style={{
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      borderRadius: '4px',
-                      border: 'none',
-                      background: filter === mode ? '#10b981' : '#1f2937',
-                      color: filter === mode ? '#ffffff' : '#94a3b8',
-                      cursor: 'pointer',
-                    }}
+                    className={`glass-segmented-item ${filter === mode ? 'active' : ''}`}
+                    style={{ padding: '4px 8px', fontSize: '10px' }}
                   >
                     {mode}
                   </button>
@@ -238,7 +201,7 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
               </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', maxHeight: '520px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', maxHeight: '500px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredEvents.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 10px', color: '#6b7280', fontSize: '13px' }}>
                   No bounce events recorded for this session.
@@ -256,22 +219,22 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                       onClick={() => setSelectedEvent(ev)}
                       style={{
                         padding: '12px',
-                        borderRadius: '8px',
-                        background: isSelected ? 'rgba(16, 185, 129, 0.15)' : '#111827',
-                        border: isSelected ? '1px solid #10b981' : '1px solid #1f2937',
+                        borderRadius: '10px',
+                        background: isSelected ? 'rgba(48, 209, 88, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                        border: isSelected ? '1px solid rgba(48, 209, 88, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
                         cursor: 'pointer',
-                        transition: 'background 0.2s',
+                        transition: 'all 0.2s',
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontWeight: 700, fontSize: '13px', color: '#f3f4f6' }}>{ev.event_id}</span>
-                        <span className={badgeClass} style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
+                        <span className={badgeClass} style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 700 }}>
                           {ev.call}
                         </span>
                       </div>
 
                       <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '6px' }}>
-                        Frame #{ev.frame_idx} | {ev.timestamp_ms.toFixed(0)} ms
+                        Frame #{ev.frame_idx} • {ev.timestamp_ms.toFixed(0)} ms
                       </div>
 
                       {ev.estimated_court_xy && (

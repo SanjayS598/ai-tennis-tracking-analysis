@@ -55,4 +55,5 @@ data/samples/
 *.mp4
 *.mov
 *.avi
+*.zip
 graphify-out/

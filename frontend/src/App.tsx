@@ -113,7 +113,6 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Toggle device simulation
   const handleToggleDeviceSimulation = (device: string, connected: boolean) => {
     fetch(`/api/devices/simulate?device=${device}&connected=${connected}`, { method: 'POST' })
       .then((res) => res.json())
@@ -121,7 +120,6 @@ export const App: React.FC = () => {
       .catch(() => {});
   };
 
-  // Load available sessions from API
   useEffect(() => {
     fetch('/api/sessions')
       .then((res) => {
@@ -142,7 +140,6 @@ export const App: React.FC = () => {
       });
   }, []);
 
-  // When selectedSessionId changes, load full report
   useEffect(() => {
     if (!selectedSessionId) return;
     fetch(`/api/sessions/${selectedSessionId}`)
@@ -173,7 +170,6 @@ export const App: React.FC = () => {
     setSelectedSessionId(newSession.session_id);
     setActiveTab('REPLAY');
 
-    // Refresh sessions list
     fetch('/api/sessions')
       .then((res) => res.json())
       .then((data: SessionSummary[]) => {
@@ -182,7 +178,6 @@ export const App: React.FC = () => {
       .catch(() => {});
   };
 
-  // If user is on landing page, display 3D tennis ball scroll experience
   if (view === 'LANDING') {
     return (
       <ErrorBoundary>
@@ -199,225 +194,134 @@ export const App: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="app-container">
-        {/* Top Navbar */}
-        <header
+      <div className="app-container" style={{ minHeight: '100vh', background: '#000000', paddingBottom: '60px' }}>
+        {/* Floating Liquid Glass Navigation Bar (Apple Style) */}
+        <div
           style={{
-            height: '66px',
-            background: 'rgba(11, 15, 25, 0.95)',
-            backdropFilter: 'blur(16px)',
-            borderBottom: '1px solid #1f2937',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 24px',
             position: 'sticky',
-            top: 0,
+            top: '16px',
             zIndex: 50,
+            maxWidth: '1280px',
+            margin: '0 auto',
+            width: 'calc(100% - 32px)',
           }}
         >
-          {/* Logo & Return to Landing */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <button
-              onClick={() => setView('LANDING')}
-              style={{
-                background: '#1f2937',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '6px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                color: '#94a3b8',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-              title="Return to Product Showcase"
-            >
-              <ArrowLeft size={14} /> Home
-            </button>
+          <header
+            className="liquid-glass-capsule"
+            style={{
+              height: '62px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0 20px',
+            }}
+          >
+            {/* Brand & Home */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                onClick={() => setView('LANDING')}
+                className="glass-btn"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
+                title="Return to Product Showcase"
+              >
+                <ArrowLeft size={13} /> Home
+              </button>
 
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '6px' }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, rgba(48, 209, 88, 0.25) 0%, rgba(48, 209, 88, 0.05) 100%)',
+                    border: '1px solid rgba(48, 209, 88, 0.4)',
+                    boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                  }}
+                >
+                  🎾
+                </div>
+                <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '-0.3px', color: '#ffffff' }}>
+                  Tennis AI
+                </span>
+              </div>
+            </div>
+
+            {/* Apple Native Glass Segmented Picker */}
+            <div className="glass-segmented">
+              <button
+                onClick={() => setActiveTab('SESSIONS')}
+                className={`glass-segmented-item ${activeTab === 'SESSIONS' ? 'active' : ''}`}
+              >
+                <Layers size={14} /> Library
+              </button>
+
+              <button
+                onClick={() => setActiveTab('REPLAY')}
+                className={`glass-segmented-item ${activeTab === 'REPLAY' ? 'active' : ''}`}
+              >
+                <Box size={14} /> 3D Replay
+              </button>
+
+              <button
+                onClick={() => setActiveTab('CALIBRATE')}
+                className={`glass-segmented-item ${activeTab === 'CALIBRATE' ? 'active' : ''}`}
+              >
+                <Target size={14} /> Calibrate
+              </button>
+
+              <button
+                onClick={() => setActiveTab('LIVE')}
+                className={`glass-segmented-item ${activeTab === 'LIVE' ? 'active' : ''}`}
+              >
+                <Activity size={14} /> Live Monitor
+              </button>
+
+              <button
+                onClick={() => setActiveTab('BIOMECHANICS')}
+                className={`glass-segmented-item ${activeTab === 'BIOMECHANICS' ? 'active' : ''}`}
+              >
+                <UserCheck size={14} /> Biomechanics
+              </button>
+            </div>
+
+            {/* Right Actions: Hardware Pill & Upload Button */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div
+                onClick={() => setIsDeviceModalOpen(true)}
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 900,
-                  color: '#ffffff',
-                  fontSize: '18px',
-                  boxShadow: '0 0 16px rgba(16, 185, 129, 0.4)',
+                  gap: '8px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '9999px',
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#cbd5e1',
+                  transition: 'background 0.2s',
                 }}
+                title="Apple Watch & iPhone companion telemetry"
               >
-                🎾
+                <Smartphone size={13} color={isIPhoneConnected ? '#30d158' : '#6b7280'} />
+                <Watch size={13} color={isWatchConnected ? '#30d158' : '#6b7280'} />
+                <span style={{ fontSize: '11px', color: '#30d158' }}>Connected</span>
               </div>
-              <div style={{ fontWeight: 800, fontSize: '16px', color: '#ffffff' }}>
-                Tennis AI <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>PRO</span>
-              </div>
+
+              <button onClick={() => setIsUploadOpen(true)} className="glass-btn-prominent" style={{ padding: '8px 18px', fontSize: '13px' }}>
+                <Upload size={14} /> Upload Video
+              </button>
             </div>
-          </div>
-
-          {/* View Navigation Tabs */}
-          <nav style={{ display: 'flex', gap: '6px' }}>
-            <button
-              onClick={() => setActiveTab('SESSIONS')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                border: 'none',
-                background: activeTab === 'SESSIONS' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-                color: activeTab === 'SESSIONS' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'SESSIONS' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
-              }}
-            >
-              <Layers size={15} /> Session Library
-            </button>
-
-            <button
-              onClick={() => setActiveTab('REPLAY')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                border: 'none',
-                background: activeTab === 'REPLAY' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-                color: activeTab === 'REPLAY' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'REPLAY' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
-              }}
-            >
-              <Box size={15} /> 3D Hawk-Eye Replay
-            </button>
-
-            <button
-              onClick={() => setActiveTab('CALIBRATE')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                border: 'none',
-                background: activeTab === 'CALIBRATE' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-                color: activeTab === 'CALIBRATE' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'CALIBRATE' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
-              }}
-            >
-              <Target size={15} /> Court Calibrator
-            </button>
-
-            <button
-              onClick={() => setActiveTab('LIVE')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                border: 'none',
-                background: activeTab === 'LIVE' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-                color: activeTab === 'LIVE' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'LIVE' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
-              }}
-            >
-              <Activity size={15} /> Live Watch Monitor
-            </button>
-
-            <button
-              onClick={() => setActiveTab('BIOMECHANICS')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                border: 'none',
-                background: activeTab === 'BIOMECHANICS' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
-                color: activeTab === 'BIOMECHANICS' ? '#ffffff' : '#94a3b8',
-                cursor: 'pointer',
-                boxShadow: activeTab === 'BIOMECHANICS' ? '0 0 14px rgba(16, 185, 129, 0.35)' : 'none',
-              }}
-            >
-              <UserCheck size={15} /> Biomechanics
-            </button>
-          </nav>
-
-          {/* Right Header Actions: Device Status & Upload */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Device Hardware Pills (Clickable to open Device Modal) */}
-            <div
-              onClick={() => setIsDeviceModalOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                background: '#111827',
-                border: '1px solid #1f2937',
-                borderRadius: '20px',
-                padding: '5px 12px',
-                cursor: 'pointer',
-              }}
-              title="Click to view Apple Watch & iPhone connection details"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#cbd5e1' }}>
-                <Smartphone size={13} color={isIPhoneConnected ? '#34d399' : '#6b7280'} />
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isIPhoneConnected ? '#10b981' : '#6b7280' }} />
-              </div>
-              <div style={{ width: 1, height: 12, background: '#374151' }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#cbd5e1' }}>
-                <Watch size={13} color={isWatchConnected ? '#34d399' : '#6b7280'} />
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isWatchConnected ? '#10b981' : '#6b7280' }} />
-              </div>
-            </div>
-
-            {/* Upload Button */}
-            <button
-              onClick={() => setIsUploadOpen(true)}
-              style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                fontSize: '12px',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                boxShadow: '0 0 14px rgba(16, 185, 129, 0.4)',
-              }}
-            >
-              <Upload size={14} /> Upload Video
-            </button>
-          </div>
-        </header>
+          </header>
+        </div>
 
         {/* Main Content Area */}
-        <main style={{ flex: 1, paddingBottom: '32px' }}>
+        <main style={{ marginTop: '24px' }}>
           {activeTab === 'SESSIONS' && (
             <SessionHubView
               sessions={sessions}
