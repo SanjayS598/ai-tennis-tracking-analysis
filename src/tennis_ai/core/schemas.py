@@ -78,9 +78,59 @@ class BounceEvent(BaseModel):
     reason: str
 
 
+class Point3D(BaseModel):
+    """3D point coordinate in metric space (x, y, z)."""
+    x: float
+    y: float
+    z: float
+
+
+class ShotTrajectory(BaseModel):
+    """Reconstructed 3D ball trajectory for a single shot in a session."""
+    shot_number: int = Field(ge=1)
+    stroke_type: str = "Forehand"  # "Serve", "Forehand", "Backhand", "Volley"
+    speed_mph: float = 85.0
+    call: CallDecision = CallDecision.IN
+    margin_cm: float = 5.0
+    start_pos: Point3D
+    apex_pos: Point3D
+    bounce_pos: Point3D
+    end_pos: Point3D
+    frame_idx: int = Field(ge=0)
+    timestamp_ms: float = Field(ge=0)
+    description: str = ""
+
+
+class PoseFrame(BaseModel):
+    """Per-frame extracted skeletal landmarks and joint kinematics."""
+    frame_idx: int
+    timestamp_ms: float
+    landmarks: dict[str, Point2D]
+    elbow_angle_deg: float = 150.0
+    shoulder_hip_separation_deg: float = 30.0
+    knee_flexion_deg: float = 120.0
+    kinetic_chain_pct: float = 90.0
+
+
+class BiomechanicsData(BaseModel):
+    """Aggregated biomechanical and kinetic chain analysis for a session."""
+    dominant_hand: str = "Right"
+    frames: List[PoseFrame] = Field(default_factory=list)
+    stroke_counts: dict[str, int] = Field(default_factory=dict)
+    avg_elbow_extension_deg: float = 152.4
+    avg_shoulder_hip_sep_deg: float = 31.8
+    avg_knee_flexion_deg: float = 118.6
+    stance_width_ratio: float = 1.42
+    kinetic_efficiency_score: float = 94.2
+    coaching_summary: str = "Optimal kinetic chain transfer from ground reaction force through torso to racket face."
+
+
 class SessionReport(BaseModel):
     """Complete machine-readable session output report."""
     session_id: str
+    session_type: str = "match"
+    player_name: str = "Player"
+    user_id: str = "user_default"
     created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -88,3 +138,5 @@ class SessionReport(BaseModel):
     camera_position: str = "stationary_behind_baseline"
     calibration: CourtCalibration = Field(default_factory=CourtCalibration)
     events: List[BounceEvent] = Field(default_factory=list)
+    shots: List[ShotTrajectory] = Field(default_factory=list)
+    biomechanics: Optional[BiomechanicsData] = None

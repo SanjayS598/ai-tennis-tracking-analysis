@@ -1,17 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Play, Pause, RotateCcw, Video, Eye, Target, Zap, ShieldCheck, Crosshair } from 'lucide-react';
-import { BounceEvent } from '../types';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Video,
+  Eye,
+  Target,
+  Zap,
+  ShieldCheck,
+  Crosshair,
+  ChevronLeft,
+  ChevronRight,
+  SkipBack,
+  SkipForward,
+  Info,
+} from 'lucide-react';
+import { BounceEvent, SessionReport, ShotTrajectory } from '../types';
 
-interface Tennis3DVisualizerProps {
+export interface Tennis3DVisualizerProps {
+  session?: SessionReport | null;
+  shots?: ShotTrajectory[];
+  activeShotIndex?: number;
+  onSelectShotIndex?: (index: number) => void;
   events?: BounceEvent[];
   selectedEvent?: BounceEvent | null;
   onSelectEvent?: (event: BounceEvent) => void;
 }
 
-interface ShotPreset {
+interface InternalShot {
   id: string;
+  shotNumber: number;
   name: string;
+  strokeType: string;
   description: string;
   speedMph: number;
   call: 'IN' | 'OUT' | 'UNCERTAIN';
@@ -22,69 +43,66 @@ interface ShotPreset {
   end: [number, number, number];
 }
 
-const SHOT_PRESETS: ShotPreset[] = [
-  {
-    id: 'ace_center',
-    name: "Ace Down the 'T'",
-    description: '124 MPH Flat First Serve skimming the center service line',
-    speedMph: 124,
-    call: 'IN',
-    marginCm: 4.2,
-    start: [1.2, 2.7, -11.8],
-    apex: [0.6, 1.5, -4.0],
-    bounce: [0.08, 0.05, 6.35],
-    end: [-0.4, 0.9, 11.2],
-  },
-  {
-    id: 'crosscourt_forehand',
-    name: 'Cross-Court Topspin Forehand',
-    description: 'Heavy 3,100 RPM topspin dipping sharply into the corner',
-    speedMph: 91,
-    call: 'IN',
-    marginCm: 8.5,
-    start: [-3.8, 1.1, -11.5],
-    apex: [-1.2, 2.1, 0.0],
-    bounce: [3.85, 0.05, 10.6],
-    end: [5.2, 1.2, 13.5],
-  },
-  {
-    id: 'down_the_line_out',
-    name: 'Down-the-Line Winner (Close Call)',
-    description: 'Aggressive backhand landing 2.4cm past the singles sideline',
-    speedMph: 88,
-    call: 'OUT',
-    marginCm: -2.4,
-    start: [-3.5, 1.0, -11.0],
-    apex: [-3.7, 1.7, 0.0],
-    bounce: [-4.25, 0.05, 9.8],
-    end: [-4.6, 0.8, 13.0],
-  },
-  {
-    id: 'hawkeye_chalk',
-    name: 'Hawk-Eye Line Paint (1.8mm IN)',
-    description: 'Micro-footprint compression touching the outer edge of the sideline',
-    speedMph: 96,
-    call: 'IN',
-    marginCm: 0.18,
-    start: [2.5, 1.2, -11.2],
-    apex: [3.2, 1.8, 0.0],
-    bounce: [4.11, 0.05, 8.2],
-    end: [4.7, 1.0, 12.5],
-  },
-];
-
 export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
+  session,
+  shots: propShots,
+  activeShotIndex: propActiveIndex,
+  onSelectShotIndex,
   events = [],
-  selectedEvent,
-  onSelectEvent,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
-  const [activePreset, setActivePreset] = useState<ShotPreset>(SHOT_PRESETS[0]);
   const [cameraMode, setCameraMode] = useState<'BROADCAST' | 'HAWKEYE' | 'UMPIRE' | 'BASELINE'>('BROADCAST');
   const [impactHappened, setImpactHappened] = useState<boolean>(false);
-  const [ballSpeedDisplay, setBallSpeedDisplay] = useState<number>(124);
+  const [ballSpeedDisplay, setBallSpeedDisplay] = useState<number>(90);
+  const [scrubberValue, setScrubberValue] = useState<number>(0);
+  const [internalActiveIndex, setInternalActiveIndex] = useState<number>(0);
+
+  // Derive shots from props or session
+  const rawShots = propShots || session?.shots || [];
+  const activeShots: InternalShot[] = React.useMemo(() => {
+    if (rawShots.length > 0) {
+      return rawShots.map((s, idx) => ({
+        id: `shot_${s.shot_number || idx + 1}`,
+        shotNumber: s.shot_number || idx + 1,
+        name: `Shot #${s.shot_number || idx + 1}`,
+        strokeType: s.stroke_type || 'Groundstroke',
+        description: s.description || `${s.speed_mph.toFixed(0)} MPH ${s.stroke_type}`,
+        speedMph: s.speed_mph,
+        call: s.call,
+        marginCm: s.margin_cm,
+        start: [s.start_pos.x, s.start_pos.y, s.start_pos.z],
+        apex: [s.apex_pos.x, s.apex_pos.y, s.apex_pos.z],
+        bounce: [s.bounce_pos.x, s.bounce_pos.y, s.bounce_pos.z],
+        end: [s.end_pos.x, s.end_pos.y, s.end_pos.z],
+      }));
+    }
+    return [];
+  }, [rawShots]);
+
+  const currentIndex = propActiveIndex !== undefined ? propActiveIndex : internalActiveIndex;
+  const currentShot: InternalShot | null = activeShots[currentIndex] || activeShots[0] || null;
+
+  const handleSelectShot = (idx: number) => {
+    setInternalActiveIndex(idx);
+    if (onSelectShotIndex) onSelectShotIndex(idx);
+    progressRef.current = 0;
+    trailCountRef.current = 0;
+    setImpactHappened(false);
+  };
+
+  const handlePrevShot = () => {
+    if (activeShots.length === 0) return;
+    const nextIdx = Math.max(0, currentIndex - 1);
+    handleSelectShot(nextIdx);
+  };
+
+  const handleNextShot = () => {
+    if (activeShots.length === 0) return;
+    const nextIdx = Math.min(activeShots.length - 1, currentIndex + 1);
+    handleSelectShot(nextIdx);
+  };
 
   // References across render loop
   const animFrameRef = useRef<number | null>(null);
@@ -110,16 +128,14 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
   });
 
   // Calculate position along multi-segment trajectory curve
-  const getTrajectoryPoint = (preset: ShotPreset, t: number): THREE.Vector3 => {
-    // t from 0 to 1
+  const getTrajectoryPoint = (shot: InternalShot, t: number): THREE.Vector3 => {
     // Segment 1: start -> apex -> bounce (t: 0 to 0.75)
     // Segment 2: bounce -> rebound -> end (t: 0.75 to 1.0)
     if (t < 0.75) {
       const segT = t / 0.75;
-      const p0 = new THREE.Vector3(...preset.start);
-      const p1 = new THREE.Vector3(...preset.apex);
-      const p2 = new THREE.Vector3(...preset.bounce);
-      // Quadratic Bezier
+      const p0 = new THREE.Vector3(...shot.start);
+      const p1 = new THREE.Vector3(...shot.apex);
+      const p2 = new THREE.Vector3(...shot.bounce);
       const oneMinusT = 1.0 - segT;
       const x = oneMinusT * oneMinusT * p0.x + 2 * oneMinusT * segT * p1.x + segT * segT * p2.x;
       const y = oneMinusT * oneMinusT * p0.y + 2 * oneMinusT * segT * p1.y + segT * segT * p2.y;
@@ -127,14 +143,13 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
       return new THREE.Vector3(x, Math.max(0.04, y), z);
     } else {
       const segT = (t - 0.75) / 0.25;
-      const p0 = new THREE.Vector3(...preset.bounce);
-      // Rebound apex
+      const p0 = new THREE.Vector3(...shot.bounce);
       const reboundApex = new THREE.Vector3(
-        preset.bounce[0] + (preset.end[0] - preset.bounce[0]) * 0.4,
+        shot.bounce[0] + (shot.end[0] - shot.bounce[0]) * 0.4,
         1.1,
-        preset.bounce[2] + (preset.end[2] - preset.bounce[2]) * 0.4
+        shot.bounce[2] + (shot.end[2] - shot.bounce[2]) * 0.4
       );
-      const p2 = new THREE.Vector3(...preset.end);
+      const p2 = new THREE.Vector3(...shot.end);
       const oneMinusT = 1.0 - segT;
       const x = oneMinusT * oneMinusT * p0.x + 2 * oneMinusT * segT * reboundApex.x + segT * segT * p2.x;
       const y = oneMinusT * oneMinusT * p0.y + 2 * oneMinusT * segT * reboundApex.y + segT * segT * p2.y;
@@ -155,7 +170,7 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
 
     // --- Camera Setup ---
     const width = container.clientWidth || 800;
-    const height = container.clientHeight || 500;
+    const height = container.clientHeight || 580;
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     cameraRef.current = camera;
     camera.position.set(0, 10, -22);
@@ -200,10 +215,9 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     scene.add(outerMesh);
 
     // Inner playing court (deep US Open cobalt blue)
-    // Doubles width: 10.97m, Length: 23.77m
     const innerGeo = new THREE.PlaneGeometry(10.97, 23.77);
     const innerMat = new THREE.MeshStandardMaterial({
-      color: 0x1d4ed8, // Vibrant tournament blue
+      color: 0x1d4ed8,
       roughness: 0.6,
       metalness: 0.15,
     });
@@ -231,7 +245,7 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     const HL = 23.77 / 2; // half-length: 11.885m
     const SL = 6.40; // service line distance from net: 6.40m
 
-    // Baselines (wider 0.08m)
+    // Baselines
     createLine(-HDW, -HL, HDW, -HL, 0.08);
     createLine(-HDW, HL, HDW, HL, 0.08);
 
@@ -243,19 +257,18 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     createLine(-HW, -HL, -HW, HL);
     createLine(HW, -HL, HW, HL);
 
-    // Service Lines (z = -SL and z = SL)
+    // Service Lines
     createLine(-HW, -SL, HW, -SL);
     createLine(-HW, SL, HW, SL);
 
-    // Center Service Line (z: -SL to +SL)
+    // Center Service Line
     createLine(0, -SL, 0, SL);
 
-    // Baseline Center Marks (0.1m long)
+    // Baseline Center Marks
     createLine(0, -HL, 0, -HL + 0.15);
     createLine(0, HL - 0.15, 0, HL);
 
     // --- Tennis Net ---
-    // Net posts (cylinders at x = ±6.0m)
     const postGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.1, 16);
     const postMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
     const postLeft = new THREE.Mesh(postGeo, postMat);
@@ -265,7 +278,6 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     scene.add(postLeft);
     scene.add(postRight);
 
-    // Net mesh surface
     const netGeo = new THREE.PlaneGeometry(12.0, 0.95, 32, 8);
     const netMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
@@ -277,23 +289,21 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     netMesh.position.set(0, 0.5, 0);
     scene.add(netMesh);
 
-    // White top headband strap (0.914m at center to 1.07m at posts)
     const bandGeo = new THREE.PlaneGeometry(12.0, 0.08);
     const bandMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
     const bandMesh = new THREE.Mesh(bandGeo, bandMat);
     bandMesh.position.set(0, 0.98, 0);
     scene.add(bandMesh);
 
-    // Center strap
     const strapGeo = new THREE.PlaneGeometry(0.06, 0.98);
     const strapMesh = new THREE.Mesh(strapGeo, bandMat);
     strapMesh.position.set(0, 0.49, 0.01);
     scene.add(strapMesh);
 
     // --- 3D Tennis Ball ---
-    const ballGeo = new THREE.SphereGeometry(0.065, 32, 32); // 6.5cm tennis ball radius
+    const ballGeo = new THREE.SphereGeometry(0.065, 32, 32);
     const ballMat = new THREE.MeshStandardMaterial({
-      color: 0xccff00, // Optic fluorescent tennis yellow
+      color: 0xccff00,
       roughness: 0.7,
       metalness: 0.05,
       emissive: 0x84cc16,
@@ -301,17 +311,16 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     });
     const ballMesh = new THREE.Mesh(ballGeo, ballMat);
     ballMesh.castShadow = true;
-    ballMesh.position.set(activePreset.start[0], activePreset.start[1], activePreset.start[2]);
+    ballMesh.position.set(0, 1.0, 0);
     scene.add(ballMesh);
     ballMeshRef.current = ballMesh;
 
-    // Ball Point Light (subtle moving neon illumination)
     const ballGlow = new THREE.PointLight(0xccff00, 1.2, 3.5);
     ballMesh.add(ballGlow);
     ballGlowRef.current = ballGlow;
 
     // --- Dynamic Motion Trail ---
-    const maxTrailPoints = 250;
+    const maxTrailPoints = 300;
     const trailPositions = new Float32Array(maxTrailPoints * 3);
     trailPositionsRef.current = trailPositions;
     const trailGeo = new THREE.BufferGeometry();
@@ -329,14 +338,14 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     // --- Hawk-Eye Impact Disc on Court Floor ---
     const impactDiscGeo = new THREE.CircleGeometry(0.08, 32);
     const impactDiscMat = new THREE.MeshBasicMaterial({
-      color: activePreset.call === 'IN' ? 0x10b981 : 0xef4444,
+      color: 0x10b981,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.0,
     });
     const impactDisc = new THREE.Mesh(impactDiscGeo, impactDiscMat);
     impactDisc.rotation.x = -Math.PI / 2;
-    impactDisc.position.set(activePreset.bounce[0], 0.02, activePreset.bounce[2]);
+    impactDisc.position.set(0, 0.02, 0);
     scene.add(impactDisc);
     impactDiscRef.current = impactDisc;
 
@@ -391,7 +400,6 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     window.addEventListener('mouseup', handlePointerUp);
     domElement.addEventListener('wheel', handleWheel, { passive: false });
 
-    // Handle Resize
     const handleResize = () => {
       if (!container || !camera || !renderer) return;
       const newW = container.clientWidth;
@@ -402,7 +410,6 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     };
     window.addEventListener('resize', handleResize);
 
-    // Clean up
     return () => {
       window.removeEventListener('resize', handleResize);
       domElement.removeEventListener('mousedown', handlePointerDown);
@@ -420,19 +427,20 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
     };
   }, []);
 
-  // Update preset or camera view
+  // Update visual elements when active shot changes
   useEffect(() => {
     progressRef.current = 0;
     trailCountRef.current = 0;
     setImpactHappened(false);
+    setScrubberValue(0);
 
-    if (impactDiscRef.current) {
-      impactDiscRef.current.position.set(activePreset.bounce[0], 0.02, activePreset.bounce[2]);
+    if (currentShot && impactDiscRef.current) {
+      impactDiscRef.current.position.set(currentShot.bounce[0], 0.02, currentShot.bounce[2]);
       const mat = impactDiscRef.current.material as THREE.MeshBasicMaterial;
-      mat.color.setHex(activePreset.call === 'IN' ? 0x10b981 : 0xef4444);
+      mat.color.setHex(currentShot.call === 'IN' ? 0x10b981 : 0xef4444);
       mat.opacity = 0;
     }
-  }, [activePreset]);
+  }, [currentShot]);
 
   // Main Render & Physics Animation Loop
   useEffect(() => {
@@ -453,40 +461,43 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
 
       if (!camera || !scene || !renderer || !ball || !trail) return;
 
-      if (isPlaying) {
-        // Advance progress
-        const speedFactor = 0.55 * playbackSpeed;
-        progressRef.current += deltaSec * speedFactor;
+      if (currentShot) {
+        ball.visible = true;
+        trail.visible = true;
 
-        // Loop after complete
-        if (progressRef.current > 1.35) {
-          progressRef.current = 0;
-          trailCountRef.current = 0;
-          setImpactHappened(false);
-          if (disc) {
-            (disc.material as THREE.MeshBasicMaterial).opacity = 0;
+        if (isPlaying) {
+          const speedFactor = 0.55 * playbackSpeed;
+          progressRef.current += deltaSec * speedFactor;
+
+          if (progressRef.current > 1.35) {
+            progressRef.current = 0;
+            trailCountRef.current = 0;
+            setImpactHappened(false);
+            if (disc) {
+              (disc.material as THREE.MeshBasicMaterial).opacity = 0;
+            }
           }
         }
 
-        // Clamp current t for ball position
-        const t = Math.min(1.0, progressRef.current);
-        const ballPos = getTrajectoryPoint(activePreset, t);
+        const t = Math.min(1.0, Math.max(0, progressRef.current));
+        setScrubberValue(t);
+
+        const ballPos = getTrajectoryPoint(currentShot, t);
         ball.position.copy(ballPos);
 
-        // Spin ball
-        ball.rotation.x += 0.25;
-        ball.rotation.y += 0.15;
+        if (isPlaying) {
+          ball.rotation.x += 0.25;
+          ball.rotation.y += 0.15;
+        }
 
-        // Dynamic speed calculation display
         const currentSpeed = t < 0.75
-          ? Math.round(activePreset.speedMph * (1.0 - t * 0.15))
-          : Math.round(activePreset.speedMph * 0.65);
+          ? Math.round(currentShot.speedMph * (1.0 - t * 0.15))
+          : Math.round(currentShot.speedMph * 0.65);
         setBallSpeedDisplay(currentSpeed);
 
-        // Update trail buffer
         const trailPositions = trailPositionsRef.current;
         const count = trailCountRef.current;
-        if (count < 250 && t < 1.0) {
+        if (count < 300 && t < 1.0) {
           trailPositions[count * 3 + 0] = ballPos.x;
           trailPositions[count * 3 + 1] = ballPos.y;
           trailPositions[count * 3 + 2] = ballPos.z;
@@ -495,64 +506,67 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
           trail.geometry.attributes.position.needsUpdate = true;
         }
 
-        // Impact detection at t = 0.75
+        // Hawk-Eye impact detection at t = 0.75
         if (t >= 0.74 && !impactHappened) {
           setImpactHappened(true);
           if (disc) {
             (disc.material as THREE.MeshBasicMaterial).opacity = 0.95;
           }
-          // Chalk dust burst animation
           if (chalk) {
             const posAttr = chalk.geometry.attributes.position as THREE.BufferAttribute;
             const arr = posAttr.array as Float32Array;
             for (let i = 0; i < 60; i++) {
-              arr[i * 3 + 0] = activePreset.bounce[0] + (Math.random() - 0.5) * 0.35;
+              arr[i * 3 + 0] = currentShot.bounce[0] + (Math.random() - 0.5) * 0.35;
               arr[i * 3 + 1] = 0.05 + Math.random() * 0.3;
-              arr[i * 3 + 2] = activePreset.bounce[2] + (Math.random() - 0.5) * 0.35;
+              arr[i * 3 + 2] = currentShot.bounce[2] + (Math.random() - 0.5) * 0.35;
             }
             posAttr.needsUpdate = true;
             (chalk.material as THREE.PointsMaterial).opacity = 0.8;
           }
         }
 
-        // Fade chalk particles after bounce
         if (chalk && (chalk.material as THREE.PointsMaterial).opacity > 0.01) {
           (chalk.material as THREE.PointsMaterial).opacity -= deltaSec * 0.9;
         }
 
-        // Pulsing Hawk-Eye impact disc
         if (disc && impactHappened) {
           const discMat = disc.material as THREE.MeshBasicMaterial;
           discMat.opacity = 0.7 + 0.25 * Math.sin(currentTime * 0.01);
         }
-      }
 
-      // Camera Positioning Modes
-      if (!isDraggingRef.current) {
-        if (cameraMode === 'BROADCAST') {
-          // Classic stationary behind-baseline camera
-          camera.position.lerp(new THREE.Vector3(0, 7.5, -18.5), 0.08);
-          camera.lookAt(0, 1.0, 2.0);
-        } else if (cameraMode === 'HAWKEYE') {
-          // Dynamic camera swooping close to bounce point
-          const targetCam = new THREE.Vector3(
-            activePreset.bounce[0] + 0.8,
-            1.6,
-            activePreset.bounce[2] - 2.8
-          );
-          camera.position.lerp(targetCam, 0.08);
-          camera.lookAt(activePreset.bounce[0], 0.1, activePreset.bounce[2]);
-        } else if (cameraMode === 'UMPIRE') {
-          // Elevated sideline chair view
-          camera.position.lerp(new THREE.Vector3(7.2, 3.8, 0), 0.08);
-          camera.lookAt(0, 0.8, 0);
-        } else if (cameraMode === 'BASELINE') {
-          // Low on-court receiver perspective
-          camera.position.lerp(new THREE.Vector3(0, 1.7, -13.5), 0.08);
-          camera.lookAt(ball.position.x * 0.4, 1.2, ball.position.z);
+        // Camera positioning
+        if (!isDraggingRef.current) {
+          if (cameraMode === 'BROADCAST') {
+            camera.position.lerp(new THREE.Vector3(0, 7.5, -18.5), 0.08);
+            camera.lookAt(0, 1.0, 2.0);
+          } else if (cameraMode === 'HAWKEYE') {
+            const targetCam = new THREE.Vector3(
+              currentShot.bounce[0] + 0.8,
+              1.6,
+              currentShot.bounce[2] - 2.8
+            );
+            camera.position.lerp(targetCam, 0.08);
+            camera.lookAt(currentShot.bounce[0], 0.1, currentShot.bounce[2]);
+          } else if (cameraMode === 'UMPIRE') {
+            camera.position.lerp(new THREE.Vector3(7.2, 3.8, 0), 0.08);
+            camera.lookAt(0, 0.8, 0);
+          } else if (cameraMode === 'BASELINE') {
+            camera.position.lerp(new THREE.Vector3(0, 1.7, -13.5), 0.08);
+            camera.lookAt(ball.position.x * 0.4, 1.2, ball.position.z);
+          }
         }
       } else {
-        // Free orbit camera driven by mouse drag
+        // No current shot
+        ball.visible = false;
+        trail.visible = false;
+        if (disc) (disc.material as THREE.MeshBasicMaterial).opacity = 0;
+        if (!isDraggingRef.current) {
+          camera.position.lerp(new THREE.Vector3(0, 8.5, -19.0), 0.08);
+          camera.lookAt(0, 1.0, 0);
+        }
+      }
+
+      if (isDraggingRef.current) {
         const rot = cameraRotationRef.current;
         const x = rot.radius * Math.sin(rot.phi) * Math.sin(rot.theta);
         const y = rot.radius * Math.cos(rot.phi);
@@ -571,237 +585,446 @@ export const Tennis3DVisualizer: React.FC<Tennis3DVisualizerProps> = ({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [isPlaying, playbackSpeed, activePreset, cameraMode, impactHappened]);
+  }, [isPlaying, playbackSpeed, currentShot, cameraMode, impactHappened]);
+
+  // Frame-by-frame stepping controls
+  const handleStepBack = () => {
+    setIsPlaying(false);
+    progressRef.current = Math.max(0, progressRef.current - 0.05);
+    setScrubberValue(progressRef.current);
+  };
+
+  const handleStepForward = () => {
+    setIsPlaying(false);
+    progressRef.current = Math.min(1.0, progressRef.current + 0.05);
+    setScrubberValue(progressRef.current);
+  };
+
+  const handleScrubberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setIsPlaying(false);
+    progressRef.current = val;
+    setScrubberValue(val);
+  };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '580px', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.08)', background: '#000000' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '620px',
+        borderRadius: '24px',
+        overflow: 'hidden',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: '#000000',
+      }}
+    >
       {/* 3D Canvas Mount Point */}
       <div ref={mountRef} style={{ width: '100%', height: '100%', cursor: 'grab' }} />
 
-      {/* Top Overlay: Speed Meter & Hawk-Eye Verdict (Liquid Glass) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '20px',
-          left: '20px',
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          pointerEvents: 'none',
-        }}
-      >
-        {/* Speed HUD */}
+      {/* Empty State Banner if no shots detected */}
+      {activeShots.length === 0 && (
         <div
-          className="liquid-glass-panel"
           style={{
-            padding: '10px 18px',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            textAlign: 'center',
+            background: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            padding: '30px 40px',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            maxWidth: '480px',
+            pointerEvents: 'none',
           }}
         >
-          <div style={{ fontSize: '10px', fontWeight: 700, color: '#0a84ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Radar Velocity
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '2px' }}>
-            <span style={{ fontSize: '26px', fontWeight: 800, color: '#ffffff', fontFamily: 'system-ui, -apple-system' }}>
-              {ballSpeedDisplay}
-            </span>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#94a3b8' }}>MPH</span>
-          </div>
+          <Info size={36} color="#38bdf8" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 700, color: '#ffffff' }}>
+            No Hawk-Eye Trajectories
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', lineHeight: 1.5 }}>
+            Upload or select a match video to reconstruct 3D ball flights, line call margins, and sub-pixel court bounces.
+          </p>
         </div>
+      )}
 
-        {/* Live Call Decision Badge */}
+      {/* Top Left: Speed Meter & Hawk-Eye Verdict */}
+      {currentShot && (
         <div
-          className="liquid-glass-panel"
           style={{
-            padding: '10px 20px',
-            background:
-              activePreset.call === 'IN'
-                ? 'rgba(48, 209, 88, 0.12)'
-                : 'rgba(255, 69, 58, 0.12)',
-            borderColor:
-              activePreset.call === 'IN'
-                ? 'rgba(48, 209, 88, 0.35)'
-                : 'rgba(255, 69, 58, 0.35)',
+            position: 'absolute',
+            top: '18px',
+            left: '18px',
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'center',
+            pointerEvents: 'none',
           }}
         >
-          <div style={{ fontSize: '10px', fontWeight: 700, color: activePreset.call === 'IN' ? '#30d158' : '#ff453a', textTransform: 'uppercase' }}>
-            Hawk-Eye Verdict
+          {/* Radar Speed */}
+          <div className="liquid-glass-panel" style={{ padding: '8px 16px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: '#0a84ff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Ball Velocity
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '2px' }}>
+              <span style={{ fontSize: '24px', fontWeight: 800, color: '#ffffff' }}>
+                {ballSpeedDisplay}
+              </span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>MPH</span>
+            </div>
           </div>
+
+          {/* Hawk-Eye Call Badge */}
           <div
+            className="liquid-glass-panel"
             style={{
-              fontSize: '20px',
-              fontWeight: 800,
-              color: activePreset.call === 'IN' ? '#30d158' : '#ff453a',
-              marginTop: '2px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              padding: '8px 18px',
+              background:
+                currentShot.call === 'IN'
+                  ? 'rgba(48, 209, 88, 0.15)'
+                  : currentShot.call === 'OUT'
+                  ? 'rgba(255, 69, 58, 0.15)'
+                  : 'rgba(255, 159, 10, 0.15)',
+              borderColor:
+                currentShot.call === 'IN'
+                  ? 'rgba(48, 209, 88, 0.4)'
+                  : currentShot.call === 'OUT'
+                  ? 'rgba(255, 69, 58, 0.4)'
+                  : 'rgba(255, 159, 10, 0.4)',
             }}
           >
-            {activePreset.call === 'IN' ? <ShieldCheck size={20} /> : <Zap size={20} />}
-            {activePreset.call}
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginLeft: '6px' }}>
-              ({activePreset.marginCm > 0 ? `+${activePreset.marginCm}cm inside` : `${Math.abs(activePreset.marginCm)}cm wide`})
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Top Right: Preset Selector (Liquid Glass Capsule List) */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-        }}
-      >
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px', textAlign: 'right' }}>
-          Trajectory Presets
-        </div>
-        {SHOT_PRESETS.map((p) => {
-          const isActive = activePreset.id === p.id;
-          return (
-            <button
-              key={p.id}
-              onClick={() => setActivePreset(p)}
+            <div
               style={{
-                background: isActive ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.04)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: isActive ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#ffffff',
-                borderRadius: '9999px',
-                padding: '7px 16px',
-                fontSize: '12px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                transition: 'all 0.2s',
-                boxShadow: isActive ? 'inset 0 1px 1px rgba(255,255,255,0.4), 0 4px 16px rgba(0,0,0,0.4)' : 'none',
+                fontSize: '10px',
+                fontWeight: 700,
+                color: currentShot.call === 'IN' ? '#30d158' : currentShot.call === 'OUT' ? '#ff453a' : '#ff9f0a',
+                textTransform: 'uppercase',
               }}
             >
-              <span>{p.name}</span>
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  padding: '2px 7px',
-                  borderRadius: '9999px',
-                  background: p.call === 'IN' ? 'rgba(48, 209, 88, 0.2)' : 'rgba(255, 69, 58, 0.2)',
-                  color: p.call === 'IN' ? '#30d158' : '#ff453a',
-                }}
-              >
-                {p.call}
+              Hawk-Eye Verdict
+            </div>
+            <div
+              style={{
+                fontSize: '19px',
+                fontWeight: 800,
+                color: currentShot.call === 'IN' ? '#30d158' : currentShot.call === 'OUT' ? '#ff453a' : '#ff9f0a',
+                marginTop: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {currentShot.call === 'IN' ? <ShieldCheck size={18} /> : <Zap size={18} />}
+              {currentShot.call}
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#cbd5e1', marginLeft: '6px' }}>
+                ({currentShot.marginCm > 0 ? `+${currentShot.marginCm}cm in` : `${Math.abs(currentShot.marginCm)}cm out`})
               </span>
-            </button>
-          );
-        })}
-      </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Right: Step-by-Step Shot Selector Pills */}
+      {activeShots.length > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '18px',
+            right: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: '8px',
+            maxWidth: '340px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+              Step-by-Step Replay
+            </span>
+            <div className="glass-segmented" style={{ padding: '2px' }}>
+              <button
+                onClick={handlePrevShot}
+                disabled={currentIndex === 0}
+                style={{
+                  padding: '4px 8px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: currentIndex === 0 ? '#475569' : '#ffffff',
+                  cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Previous Shot"
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+              <button
+                onClick={handleNextShot}
+                disabled={currentIndex === activeShots.length - 1}
+                style={{
+                  padding: '4px 8px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: currentIndex === activeShots.length - 1 ? '#475569' : '#ffffff',
+                  cursor: currentIndex === activeShots.length - 1 ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Next Shot"
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Shot Horizontal Capsule Bar */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+            }}
+          >
+            {activeShots.map((s, idx) => {
+              const isSelected = idx === currentIndex;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => handleSelectShot(idx)}
+                  style={{
+                    background: isSelected ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    border: isSelected ? '1px solid rgba(255, 255, 255, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    color: '#ffffff',
+                    borderRadius: '9999px',
+                    padding: '5px 12px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s ease',
+                    boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.4)' : 'none',
+                  }}
+                >
+                  <span>Shot #{s.shotNumber}</span>
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 800,
+                      padding: '1px 5px',
+                      borderRadius: '9999px',
+                      background:
+                        s.call === 'IN'
+                          ? 'rgba(48, 209, 88, 0.25)'
+                          : s.call === 'OUT'
+                          ? 'rgba(255, 69, 58, 0.25)'
+                          : 'rgba(255, 159, 10, 0.25)',
+                      color: s.call === 'IN' ? '#30d158' : s.call === 'OUT' ? '#ff453a' : '#ff9f0a',
+                    }}
+                  >
+                    {s.call}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {currentShot && (
+            <div
+              style={{
+                fontSize: '11px',
+                color: '#cbd5e1',
+                background: 'rgba(0, 0, 0, 0.4)',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                marginTop: '2px',
+              }}
+            >
+              {currentShot.description}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom Floating Control Dock (Apple Liquid Glass Capsule) */}
       <div
         className="liquid-glass-capsule"
         style={{
           position: 'absolute',
-          bottom: '20px',
+          bottom: '18px',
           left: '50%',
           transform: 'translateX(-50%)',
-          padding: '6px 18px',
+          padding: '8px 20px',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: '14px',
+          gap: '8px',
+          maxWidth: '90%',
         }}
       >
-        {/* Play/Pause */}
-        <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          style={{
-            background: isPlaying ? 'rgba(255, 255, 255, 0.1)' : '#30d158',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '50%',
-            width: 32,
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-          title={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-        </button>
+        {/* Trajectory Scrubber Slider */}
+        {currentShot && (
+          <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '10px', color: '#94a3b8', width: '38px', textAlign: 'right' }}>
+              Launch
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={scrubberValue}
+              onChange={handleScrubberChange}
+              style={{
+                flex: 1,
+                accentColor: '#30d158',
+                height: '4px',
+                cursor: 'pointer',
+              }}
+            />
+            <span style={{ fontSize: '10px', color: '#94a3b8', width: '38px' }}>
+              Bounce
+            </span>
+          </div>
+        )}
 
-        {/* Replay */}
-        <button
-          onClick={() => {
-            progressRef.current = 0;
-            trailCountRef.current = 0;
-            setImpactHappened(false);
-          }}
-          style={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            color: '#cbd5e1',
-            border: 'none',
-            borderRadius: '50%',
-            width: 32,
-            height: 32,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-          title="Replay Shot"
-        >
-          <RotateCcw size={14} />
-        </button>
+        {/* Transport & Camera Controls Row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          {/* Step Back 1 Frame */}
+          <button
+            onClick={handleStepBack}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            title="Step Back (-1 Frame)"
+          >
+            <SkipBack size={13} />
+          </button>
 
-        <div style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
+          {/* Play/Pause */}
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{
+              background: isPlaying ? 'rgba(255, 255, 255, 0.12)' : '#30d158',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '50%',
+              width: '34px',
+              height: '34px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            title={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <Pause size={15} /> : <Play size={15} />}
+          </button>
 
-        {/* Camera Views */}
-        <div className="glass-segmented">
-          {(
-            [
-              { id: 'BROADCAST', label: 'Broadcast', icon: Video },
-              { id: 'HAWKEYE', label: 'Hawk-Eye', icon: Crosshair },
-              { id: 'UMPIRE', label: 'Umpire', icon: Eye },
-              { id: 'BASELINE', label: 'POV', icon: Target },
-            ] as const
-          ).map((c) => {
-            const isSelected = cameraMode === c.id;
-            const Icon = c.icon;
-            return (
+          {/* Step Forward 1 Frame */}
+          <button
+            onClick={handleStepForward}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            title="Step Forward (+1 Frame)"
+          >
+            <SkipForward size={13} />
+          </button>
+
+          {/* Replay Shot */}
+          <button
+            onClick={() => {
+              progressRef.current = 0;
+              trailCountRef.current = 0;
+              setImpactHappened(false);
+              setScrubberValue(0);
+            }}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              color: '#cbd5e1',
+              border: 'none',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            title="Restart Trajectory"
+          >
+            <RotateCcw size={13} />
+          </button>
+
+          <div style={{ width: 1, height: 18, background: 'rgba(255, 255, 255, 0.15)' }} />
+
+          {/* Camera Views */}
+          <div className="glass-segmented">
+            {(
+              [
+                { id: 'BROADCAST', label: 'Broadcast', icon: Video },
+                { id: 'HAWKEYE', label: 'Hawk-Eye', icon: Crosshair },
+                { id: 'UMPIRE', label: 'Umpire', icon: Eye },
+                { id: 'BASELINE', label: 'POV', icon: Target },
+              ] as const
+            ).map((c) => {
+              const isSelected = cameraMode === c.id;
+              const Icon = c.icon;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setCameraMode(c.id)}
+                  className={`glass-segmented-item ${isSelected ? 'active' : ''}`}
+                  style={{ padding: '4px 10px', fontSize: '11px' }}
+                >
+                  <Icon size={12} /> {c.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ width: 1, height: 18, background: 'rgba(255, 255, 255, 0.15)' }} />
+
+          {/* Speed Controls */}
+          <div className="glass-segmented">
+            {[0.25, 0.5, 1.0, 2.0].map((s) => (
               <button
-                key={c.id}
-                onClick={() => setCameraMode(c.id)}
-                className={`glass-segmented-item ${isSelected ? 'active' : ''}`}
-                style={{ padding: '5px 12px', fontSize: '11px' }}
+                key={s}
+                onClick={() => setPlaybackSpeed(s)}
+                className={`glass-segmented-item ${playbackSpeed === s ? 'active' : ''}`}
+                style={{ padding: '3px 8px', fontSize: '10px' }}
               >
-                <Icon size={12} /> {c.label}
+                {s}x
               </button>
-            );
-          })}
-        </div>
-
-        <div style={{ width: 1, height: 20, background: 'rgba(255, 255, 255, 0.15)' }} />
-
-        {/* Speed Controls */}
-        <div className="glass-segmented">
-          {[0.25, 0.5, 1.0, 2.0].map((s) => (
-            <button
-              key={s}
-              onClick={() => setPlaybackSpeed(s)}
-              className={`glass-segmented-item ${playbackSpeed === s ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: '11px' }}
-            >
-              {s}x
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

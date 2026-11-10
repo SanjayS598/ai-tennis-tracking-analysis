@@ -35,17 +35,71 @@ export interface BounceEvent {
   reason: string;
 }
 
+export interface Point3D {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface ShotTrajectory {
+  shot_number: number;
+  stroke_type: string;
+  speed_mph: number;
+  call: CallDecision;
+  margin_cm: number;
+  start_pos: Point3D;
+  apex_pos: Point3D;
+  bounce_pos: Point3D;
+  end_pos: Point3D;
+  frame_idx: number;
+  timestamp_ms: number;
+  description: string;
+}
+
+export interface PoseFrame {
+  frame_idx: number;
+  timestamp_ms: number;
+  landmarks: Record<string, Point2D>;
+  elbow_angle_deg: number;
+  shoulder_hip_separation_deg: number;
+  knee_flexion_deg: number;
+  kinetic_chain_pct: number;
+}
+
+export interface BiomechanicsData {
+  dominant_hand: string;
+  frames: PoseFrame[];
+  stroke_counts: Record<string, number>;
+  avg_elbow_extension_deg: number;
+  avg_shoulder_hip_sep_deg: number;
+  avg_knee_flexion_deg: number;
+  stance_width_ratio: number;
+  kinetic_efficiency_score: number;
+  coaching_summary: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  handedness: 'Right' | 'Left';
+  play_style: string;
+  utr_rating: string;
+}
+
 export type SessionType = 'match' | 'rally' | 'serve';
 
 export interface SessionReport {
   session_id: string;
   session_type?: SessionType;
   player_name?: string;
+  user_id?: string;
   created_at: string;
   video_metadata: VideoMetadata;
   camera_position: string;
   calibration: CourtCalibration;
   events: BounceEvent[];
+  shots?: ShotTrajectory[];
+  biomechanics?: BiomechanicsData;
 }
 
 export interface SessionSummary {
@@ -53,6 +107,7 @@ export interface SessionSummary {
   display_id?: string;
   session_type?: SessionType;
   player_name?: string;
+  user_id?: string;
   created_at: string;
   source_video: string;
   duration_sec: number;
