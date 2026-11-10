@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tennis-ai"
+version = "0.1.0"
+description = "AI-powered tennis tracking and analysis system"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Sanjay Shankar" },
+]
+dependencies = [
+    "numpy>=1.26.0",
+    "opencv-python>=4.9.0.80",
+    "pydantic>=2.6.0",
+    "torch>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+]
+pose = [
+    "mediapipe>=0.10.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tennis_ai"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --import-mode=importlib"
+testpaths = ["tests"]
+pythonpath = ["src"]
