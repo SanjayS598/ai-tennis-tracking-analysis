@@ -10,8 +10,6 @@ import {
   Award,
   Video,
   Target,
-  BarChart2,
-  Cpu,
   ChevronDown,
   Sparkles,
 } from 'lucide-react';
@@ -28,9 +26,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
   const ballMeshRef = useRef<THREE.Group | null>(null);
   const targetPosRef = useRef<THREE.Vector3>(new THREE.Vector3(3.2, 0.4, 0));
   const targetRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const scrollProgressRef = useRef<number>(0);
 
-  // Generate Tennis Ball Procedural Felt Texture with Signature Seams
+  // Procedural felt texture with curved seam
   const createTennisBallTexture = (): THREE.CanvasTexture => {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
@@ -43,21 +40,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Subtle felt fuzz noise
-      for (let i = 0; i < 40000; i++) {
+      for (let i = 0; i < 35000; i++) {
         const x = Math.random() * canvas.width;
         const y = Math.random() * canvas.height;
-        const brightness = 200 + Math.floor(Math.random() * 55);
+        const brightness = 210 + Math.floor(Math.random() * 45);
         ctx.fillStyle = `rgba(${brightness}, 255, ${Math.floor(Math.random() * 50)}, 0.12)`;
         ctx.fillRect(x, y, 1.5, 1.5);
       }
 
-      // Draw Tennis Ball Signature Curved Seam (White Rubber Rib)
-      ctx.strokeStyle = '#f8fafc';
+      // Curved rubber seam
+      ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 14;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // First seam curve
       ctx.beginPath();
       for (let x = 0; x <= canvas.width; x += 5) {
         const normX = (x / canvas.width) * Math.PI * 2;
@@ -67,8 +63,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
       }
       ctx.stroke();
 
-      // Shadow on seam edge for depth
-      ctx.strokeStyle = 'rgba(100, 140, 0, 0.45)';
+      // Shadow border along seam
+      ctx.strokeStyle = 'rgba(90, 130, 0, 0.4)';
       ctx.lineWidth = 4;
       ctx.stroke();
     }
@@ -94,27 +90,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
     // --- Lighting ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xdcfce7, 2.2);
-    keyLight.position.set(5, 6, 7);
+    const keyLight = new THREE.DirectionalLight(0xf0fdf4, 2.4);
+    keyLight.position.set(6, 7, 7);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 2.2);
     rimLight.position.set(-6, -3, -4);
     scene.add(rimLight);
 
-    const courtGreenGlow = new THREE.PointLight(0x10b981, 1.5, 12);
-    courtGreenGlow.position.set(0, -4, 2);
-    scene.add(courtGreenGlow);
+    const greenUnderglow = new THREE.PointLight(0x30d158, 1.8, 14);
+    greenUnderglow.position.set(0, -4, 2);
+    scene.add(greenUnderglow);
 
-    // --- 3D Detailed Tennis Ball Group ---
+    // --- 3D Tennis Ball ---
     const ballGroup = new THREE.Group();
     scene.add(ballGroup);
     ballMeshRef.current = ballGroup;
@@ -123,16 +119,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     const ballGeo = new THREE.SphereGeometry(1.65, 64, 64);
     const ballMat = new THREE.MeshStandardMaterial({
       map: ballTexture,
-      roughness: 0.75,
-      metalness: 0.05,
+      roughness: 0.72,
+      metalness: 0.04,
       bumpMap: ballTexture,
       bumpScale: 0.035,
     });
     const ballMesh = new THREE.Mesh(ballGeo, ballMat);
     ballGroup.add(ballMesh);
 
-    // Subtle atmospheric aura particles
-    const particleCount = 70;
+    // Ambient floating dust particles
+    const particleCount = 60;
     const particleGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount * 3; i += 3) {
@@ -142,39 +138,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     }
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
     const particleMat = new THREE.PointsMaterial({
-      color: 0x84cc16,
-      size: 0.045,
+      color: 0x30d158,
+      size: 0.04,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.4,
     });
     const particles = new THREE.Points(particleGeo, particleMat);
     scene.add(particles);
 
-    // Initial ball position
     ballGroup.position.set(3.2, 0.4, 0);
 
-    // --- Scroll & Mouse Move Handlers ---
+    // Scroll mapping
     const handleScroll = () => {
       const scrollY = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       const progress = Math.min(1.0, Math.max(0.0, scrollY / (docHeight || 1)));
-      scrollProgressRef.current = progress;
 
-      // Choreograph 3D Tennis Ball Position across page sections
       if (progress < 0.25) {
-        // Hero Section: Pinned right, slight floating tilt
         const localT = progress / 0.25;
         targetPosRef.current.set(3.0 - localT * 0.5, 0.4 - localT * 0.3, localT * 0.5);
       } else if (progress < 0.55) {
-        // Sessions Section: Swoops across to left
         const localT = (progress - 0.25) / 0.3;
         targetPosRef.current.set(2.5 - localT * 5.2, 0.1 - localT * 0.4, 0.5 - localT * 0.2);
       } else if (progress < 0.8) {
-        // Hardware Ecosystem Section: Centers near iPhone/Watch card
         const localT = (progress - 0.55) / 0.25;
         targetPosRef.current.set(-2.7 + localT * 5.6, -0.3 + localT * 0.6, 0.3 + localT * 0.4);
       } else {
-        // Final CTA Section: Centered, dramatic close-up
         const localT = (progress - 0.8) / 0.2;
         targetPosRef.current.set(2.9 - localT * 2.9, 0.3 - localT * 0.3, 0.7 + localT * 0.8);
       }
@@ -183,14 +172,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     const handleMouseMove = (e: MouseEvent) => {
       const normX = (e.clientX / window.innerWidth) * 2 - 1;
       const normY = -(e.clientY / window.innerHeight) * 2 + 1;
-      targetRotRef.current.x = normY * 0.4;
-      targetRotRef.current.y = normX * 0.6;
+      targetRotRef.current.x = normY * 0.35;
+      targetRotRef.current.y = normX * 0.5;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('mousemove', handleMouseMove);
 
-    // Handle Window Resize
     const handleResize = () => {
       if (!container || !camera || !renderer) return;
       const newW = container.clientWidth;
@@ -201,29 +189,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
     };
     window.addEventListener('resize', handleResize);
 
-    // --- Render Loop ---
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
     const animate = () => {
       animFrameRef.current = requestAnimationFrame(animate);
       const delta = clock.getDelta();
       const time = clock.getElapsedTime();
 
       if (ballGroup) {
-        // Smooth position interpolation
         ballGroup.position.lerp(targetPosRef.current, 0.06);
-
-        // Continuous spin + mouse interactive tilt
         ballGroup.rotation.y += delta * 0.45 + targetRotRef.current.y * 0.05;
         ballGroup.rotation.x += delta * 0.25 + targetRotRef.current.x * 0.05;
-        ballGroup.rotation.z = Math.sin(time * 0.8) * 0.15;
-
-        // Subtle levitation bob
         ballGroup.position.y += Math.sin(time * 2.0) * 0.003;
       }
 
-      // Drift dust particles
       if (particles) {
-        particles.rotation.y = time * 0.04;
+        particles.rotation.y = time * 0.035;
       }
 
       renderer.render(scene, camera);
@@ -247,8 +227,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
   const isWatchConnected = devices?.watch?.connected ?? true;
 
   return (
-    <div style={{ position: 'relative', background: '#030712', color: '#f3f4f6', minHeight: '100vh', overflowX: 'hidden' }}>
-      {/* Pinned 3D Three.js Tennis Ball Canvas (Covers Entire Screen Behind Content) */}
+    <div style={{ position: 'relative', background: '#000000', color: '#f3f4f6', minHeight: '100vh', overflowX: 'hidden' }}>
+      {/* Background 3D Tennis Ball Canvas */}
       <div
         ref={canvasContainerRef}
         style={{
@@ -262,127 +242,94 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
         }}
       />
 
-      {/* Glass Top Navigation Bar */}
-      <nav
+      {/* Floating Liquid Glass Navigation Capsule (Apple Style) */}
+      <div
         style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '70px',
-          background: 'rgba(3, 7, 18, 0.75)',
-          backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 36px',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 48px)',
+          maxWidth: '1240px',
           zIndex: 40,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '22px',
-              boxShadow: '0 0 24px rgba(16, 185, 129, 0.5)',
-            }}
-          >
-            🎾
-          </div>
-          <div>
-            <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.4px', color: '#ffffff' }}>
-              Tennis AI <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>PRO</span>
+        <nav
+          className="liquid-glass-capsule"
+          style={{
+            height: '62px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 24px',
+          }}
+        >
+          {/* Brand */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(48, 209, 88, 0.25) 0%, rgba(48, 209, 88, 0.05) 100%)',
+                border: '1px solid rgba(48, 209, 88, 0.4)',
+                boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+              }}
+            >
+              🎾
+            </div>
+            <span style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.3px', color: '#ffffff' }}>
+              Tennis AI
             </span>
           </div>
-        </div>
 
-        {/* Live Hardware Ecosystem Indicators */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(17, 24, 39, 0.8)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontSize: '12px',
-              fontWeight: 600,
-            }}
-          >
-            <Smartphone size={14} color={isIPhoneConnected ? '#34d399' : '#94a3b8'} />
-            <span>iPhone 16 Pro</span>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: isIPhoneConnected ? '#10b981' : '#6b7280',
-                boxShadow: isIPhoneConnected ? '0 0 8px #10b981' : 'none',
-              }}
-            />
+          {/* Center Links */}
+          <div className="glass-segmented" style={{ display: 'flex' }}>
+            <a href="#sessions" className="glass-segmented-item" style={{ textDecoration: 'none' }}>
+              Sessions
+            </a>
+            <a href="#ecosystem" className="glass-segmented-item" style={{ textDecoration: 'none' }}>
+              Watch & Phone
+            </a>
+            <a href="#hawkeye" className="glass-segmented-item" style={{ textDecoration: 'none' }}>
+              Hawk-Eye
+            </a>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(17, 24, 39, 0.8)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontSize: '12px',
-              fontWeight: 600,
-            }}
-          >
-            <Watch size={14} color={isWatchConnected ? '#34d399' : '#94a3b8'} />
-            <span>Apple Watch Ultra</span>
-            <span
+          {/* Right Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Device Pill */}
+            <div
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: isWatchConnected ? '#10b981' : '#6b7280',
-                boxShadow: isWatchConnected ? '0 0 8px #10b981' : 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#cbd5e1',
               }}
-            />
+            >
+              <Smartphone size={13} color={isIPhoneConnected ? '#30d158' : '#6b7280'} />
+              <Watch size={13} color={isWatchConnected ? '#30d158' : '#6b7280'} />
+              <span style={{ fontSize: '11px', color: '#30d158' }}>Connected</span>
+            </div>
+
+            <button onClick={onLaunchApp} className="glass-btn-prominent">
+              Launch App <ArrowRight size={15} />
+            </button>
           </div>
+        </nav>
+      </div>
 
-          <button
-            onClick={onLaunchApp}
-            style={{
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '10px 22px',
-              fontSize: '13px',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 0 20px rgba(16, 185, 129, 0.45)',
-              transition: 'transform 0.2s',
-            }}
-          >
-            Launch App <ArrowRight size={16} />
-          </button>
-        </div>
-      </nav>
-
-      {/* ============================================================== */}
-      {/* SECTION 1: HERO                                                */}
-      {/* ============================================================== */}
+      {/* Hero Section */}
       <section
         style={{
           position: 'relative',
@@ -390,95 +337,67 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          padding: '120px 48px 60px',
-          maxWidth: '1360px',
+          padding: '160px 48px 80px',
+          maxWidth: '1280px',
           margin: '0 auto',
           zIndex: 10,
         }}
       >
         <div style={{ maxWidth: '640px' }}>
+          {/* Category Chip */}
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              padding: '6px 14px',
-              borderRadius: '24px',
+              padding: '6px 16px',
+              borderRadius: '9999px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.2)',
               fontSize: '12px',
-              fontWeight: 700,
-              color: '#34d399',
-              marginBottom: '24px',
+              fontWeight: 600,
+              color: '#30d158',
+              marginBottom: '28px',
             }}
           >
-            <Sparkles size={14} /> TOUR-LEVEL INTELLIGENCE • ON EVERY COURT
+            <Sparkles size={13} />
+            <span>Apple Liquid Glass Edition</span>
           </div>
 
           <h1
             style={{
-              fontSize: '56px',
-              fontWeight: 900,
-              lineHeight: 1.08,
-              letterSpacing: '-1.5px',
+              fontSize: '60px',
+              fontWeight: 800,
+              lineHeight: 1.05,
+              letterSpacing: '-2px',
               margin: '0 0 20px 0',
-              background: 'linear-gradient(180deg, #ffffff 30%, #cbd5e1 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              color: '#ffffff',
             }}
           >
-            The Full-Stack AI Tennis Engine.
+            Tour-Level Vision. On Every Court.
           </h1>
 
           <p
             style={{
-              fontSize: '18px',
+              fontSize: '19px',
               color: '#94a3b8',
-              lineHeight: 1.6,
-              margin: '0 0 36px 0',
-              maxWidth: '560px',
+              lineHeight: 1.55,
+              margin: '0 0 40px 0',
+              maxWidth: '540px',
+              fontWeight: 400,
             }}
           >
-            Transform stationary iPhone video into sub-centimeter line calling, 3D Hawk-Eye ball trajectories, and real-time Apple Watch wrist haptics.
+            Transform a single stationary iPhone behind the baseline into sub-centimeter line calls, 3D Hawk-Eye ball trajectories, and real-time Apple Watch haptics.
           </p>
 
-          {/* Primary Call to Action */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            <button
-              onClick={onLaunchApp}
-              style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '16px 34px',
-                fontSize: '16px',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                cursor: 'pointer',
-                boxShadow: '0 0 32px rgba(16, 185, 129, 0.55)',
-                transition: 'transform 0.2s',
-              }}
-            >
-              Launch Tennis AI Platform <ArrowRight size={18} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button onClick={onLaunchApp} className="glass-btn-prominent" style={{ padding: '14px 32px', fontSize: '15px' }}>
+              Launch Tennis AI Platform <ArrowRight size={17} />
             </button>
 
-            <a
-              href="#sessions-breakdown"
-              style={{
-                color: '#cbd5e1',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: 600,
-                padding: '16px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              Explore Sessions & Features <ChevronDown size={16} />
+            <a href="#sessions" className="glass-btn" style={{ textDecoration: 'none' }}>
+              View Capabilities <ChevronDown size={15} />
             </a>
           </div>
 
@@ -487,290 +406,230 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '16px',
-              marginTop: '56px',
+              gap: '14px',
+              marginTop: '60px',
               maxWidth: '560px',
             }}
           >
-            <div style={{ background: 'rgba(11, 15, 25, 0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 900, color: '#34d399', fontFamily: 'JetBrains Mono, monospace' }}>&lt; 2.5 cm</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Line Call Uncertainty</div>
+            <div className="apple-card" style={{ padding: '16px 20px' }}>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#30d158', fontFamily: 'system-ui, -apple-system' }}>
+                &lt; 2.5 cm
+              </div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Uncertainty Margin</div>
             </div>
-            <div style={{ background: 'rgba(11, 15, 25, 0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 900, color: '#38bdf8', fontFamily: 'JetBrains Mono, monospace' }}>0.03s</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Watch Haptic Latency</div>
+
+            <div className="apple-card" style={{ padding: '16px 20px' }}>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0a84ff', fontFamily: 'system-ui, -apple-system' }}>
+                12 ms
+              </div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Transport Latency</div>
             </div>
-            <div style={{ background: 'rgba(11, 15, 25, 0.75)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 900, color: '#f59e0b', fontFamily: 'JetBrains Mono, monospace' }}>60 FPS</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>TrackNet Neural Rate</div>
+
+            <div className="apple-card" style={{ padding: '16px 20px' }}>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: '#f59e0b', fontFamily: 'system-ui, -apple-system' }}>
+                60 FPS
+              </div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>TrackNet 1080p</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ============================================================== */}
-      {/* SECTION 2: SESSION TYPES BREAKDOWN                             */}
-      {/* ============================================================== */}
+      {/* Section 2: Session Workflows */}
       <section
-        id="sessions-breakdown"
+        id="sessions"
         style={{
           position: 'relative',
           padding: '100px 48px',
-          maxWidth: '1360px',
+          maxWidth: '1280px',
           margin: '0 auto',
           zIndex: 10,
         }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            ORGANIZED INTELLIGENCE
+        <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: '#0a84ff', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            ORGANIZED WORKFLOWS
           </div>
-          <h2 style={{ fontSize: '40px', fontWeight: 900, letterSpacing: '-1px', margin: '8px 0 16px 0', color: '#ffffff' }}>
-            Structured by Your Tennis Workflows.
+          <h2 style={{ fontSize: '38px', fontWeight: 800, letterSpacing: '-1px', margin: '8px 0 14px 0', color: '#ffffff' }}>
+            Built for Match Play, Rallies, and Serve Practice.
           </h2>
-          <p style={{ color: '#94a3b8', fontSize: '16px', maxWidth: '600px', margin: '0 auto' }}>
-            Whether you're battling in tournament sets, grooving groundstrokes, or dialing in your kick serve, Tennis AI categorizes and analyzes every rep.
+          <p style={{ color: '#94a3b8', fontSize: '16px', maxWidth: '580px', margin: '0 auto' }}>
+            Structured intelligence categorizing every set, groundstroke drill, and service motion into actionable stats.
           </p>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-          {/* Card 1: Matches */}
-          <div
-            style={{
-              background: 'rgba(11, 15, 25, 0.85)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '32px',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-            }}
-          >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '22px' }}>
+          {/* Card 1 */}
+          <div className="apple-card" style={{ padding: '32px', display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 borderRadius: '12px',
-                background: 'rgba(16, 185, 129, 0.15)',
+                background: 'rgba(48, 209, 88, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: '20px',
               }}
             >
-              <Award size={26} color="#10b981" />
+              <Award size={24} color="#30d158" />
             </div>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 10px 0', color: '#ffffff' }}>
-              Tournament & Practice Matches
+            <h3 style={{ fontSize: '19px', fontWeight: 700, margin: '0 0 10px 0', color: '#ffffff' }}>
+              Tournament Matches
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', margin: '0 0 20px 0', flex: 1 }}>
-              Full competitive match tracking. Automatic line calls on every shot, scorekeeper, game/set progression, break point conversion, and winning patterns.
+              Full competitive match analysis. Real-time line calls on every shot, scorekeeper progression, breakpoint conversion, and winning baseline patterns.
             </p>
-            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
-              ✓ Three-state IN/OUT engine • ✓ Video Review
+            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '16px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
+              Three-State IN / OUT / UNCERTAIN
             </div>
           </div>
 
-          {/* Card 2: Rallies */}
-          <div
-            style={{
-              background: 'rgba(11, 15, 25, 0.85)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '32px',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-            }}
-          >
+          {/* Card 2 */}
+          <div className="apple-card" style={{ padding: '32px', display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 borderRadius: '12px',
-                background: 'rgba(56, 189, 248, 0.15)',
+                background: 'rgba(10, 132, 255, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: '20px',
               }}
             >
-              <Activity size={26} color="#38bdf8" />
+              <Activity size={24} color="#0a84ff" />
             </div>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 10px 0', color: '#ffffff' }}>
-              Rallies & Baseline Drills
+            <h3 style={{ fontSize: '19px', fontWeight: 700, margin: '0 0 10px 0', color: '#ffffff' }}>
+              Rallies & Drills
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', margin: '0 0 20px 0', flex: 1 }}>
-              Track rally length, ball depth consistency, heavy topspin margins over the net, cross-court accuracy, and unforced error rates.
+              Track rally length, court depth consistency, heavy topspin margins over the net, cross-court precision, and unforced error detection.
             </p>
-            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
-              ✓ Depth Minimap • ✓ Forehand/Backhand Split
+            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '16px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
+              Metric 2D Court Minimap
             </div>
           </div>
 
-          {/* Card 3: Serve Practice */}
-          <div
-            style={{
-              background: 'rgba(11, 15, 25, 0.85)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '16px',
-              padding: '32px',
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-            }}
-          >
+          {/* Card 3 */}
+          <div className="apple-card" style={{ padding: '32px', display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 borderRadius: '12px',
-                background: 'rgba(245, 158, 11, 0.15)',
+                background: 'rgba(255, 159, 10, 0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: '20px',
               }}
             >
-              <Zap size={26} color="#f59e0b" />
+              <Zap size={24} color="#ff9f0a" />
             </div>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 10px 0', color: '#ffffff' }}>
-              Serve Practice & Radar
+            <h3 style={{ fontSize: '19px', fontWeight: 700, margin: '0 0 10px 0', color: '#ffffff' }}>
+              Serve Radar & Placement
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', margin: '0 0 20px 0', flex: 1 }}>
-              High-speed radar velocity tracking, first vs second serve percentages, wide / body / T placement dispersion, and kinetic chain biomechanics.
+              Radar velocity tracking (MPH), first vs second serve percentages, wide / body / T service box dispersion, and kinetic chain biomechanics.
             </p>
-            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
-              ✓ Radar MPH • ✓ Service Box Heatmap
+            <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '16px', fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
+              Radar Velocity & Kinetic Normalization
             </div>
           </div>
         </div>
       </section>
 
-      {/* ============================================================== */}
-      {/* SECTION 3: APPLE WATCH & IPHONE ECOSYSTEM                      */}
-      {/* ============================================================== */}
+      {/* Section 3: Ecosystem */}
       <section
+        id="ecosystem"
         style={{
           position: 'relative',
           padding: '80px 48px',
-          maxWidth: '1360px',
+          maxWidth: '1280px',
           margin: '0 auto',
           zIndex: 10,
         }}
       >
         <div
+          className="apple-card"
           style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(11, 15, 25, 0.95) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            borderRadius: '24px',
-            padding: '56px',
+            padding: '52px',
             display: 'grid',
             gridTemplateColumns: '1.2fr 1fr',
             gap: '48px',
             alignItems: 'center',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(10,14,23,0.85) 100%)',
           }}
         >
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
-              CONNECTED HARDWARE
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#30d158', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>
+              SEAMLESS HARDWARE
             </div>
-            <h2 style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '-0.8px', color: '#ffffff', margin: '0 0 16px 0' }}>
-              Your iPhone on the Fence. Your Apple Watch on Your Wrist.
+            <h2 style={{ fontSize: '34px', fontWeight: 800, letterSpacing: '-0.8px', color: '#ffffff', margin: '0 0 16px 0' }}>
+              Your iPhone On The Fence. Your Apple Watch On Your Wrist.
             </h2>
-            <p style={{ color: '#94a3b8', fontSize: '16px', lineHeight: '1.6', margin: '0 0 24px 0' }}>
-              Tennis AI synchronizes via real-time WebSockets to deliver instant haptic feedback on close calls without taking your eyes off the ball:
+            <p style={{ color: '#94a3b8', fontSize: '16px', lineHeight: '1.6', margin: '0 0 28px 0' }}>
+              No eye contact required. When the ball lands near the boundary line, our three-state engine sends an immediate tactile pulse to your Apple Watch:
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '32px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '6px', background: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ShieldCheck size={16} color="#34d399" />
-                </div>
+                <ShieldCheck size={18} color="#30d158" />
                 <span style={{ fontSize: '14px', color: '#e2e8f0' }}>
-                  <strong>IN Call:</strong> Single crisp `.success` haptic tap
+                  <strong>IN:</strong> Single crisp `.success` haptic tap
                 </span>
               </div>
-
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Zap size={16} color="#f87171" />
-                </div>
+                <Zap size={18} color="#ff453a" />
                 <span style={{ fontSize: '14px', color: '#e2e8f0' }}>
-                  <strong>OUT Call:</strong> Double alert `.failure` vibration + red flash
+                  <strong>OUT:</strong> Double alert `.failure` vibration + red flash
                 </span>
               </div>
-
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '6px', background: 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Target size={16} color="#fbbf24" />
-                </div>
+                <Target size={18} color="#ff9f0a" />
                 <span style={{ fontSize: '14px', color: '#e2e8f0' }}>
-                  <strong>UNCERTAIN:</strong> Gentle `.retry` tap within ±2.5cm threshold
+                  <strong>UNCERTAIN:</strong> Gentle `.retry` tap within ±2.5cm margin
                 </span>
               </div>
             </div>
 
-            <button
-              onClick={onLaunchApp}
-              style={{
-                background: '#10b981',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
-                padding: '12px 24px',
-                fontSize: '14px',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer',
-              }}
-            >
-              Open Live Monitor <ArrowRight size={16} />
+            <button onClick={onLaunchApp} className="glass-btn-prominent">
+              Open Live Monitor <ArrowRight size={15} />
             </button>
           </div>
 
-          {/* Interactive Hardware Card */}
-          <div
-            style={{
-              background: '#0b0f19',
-              border: '1px solid #1f2937',
-              borderRadius: '18px',
-              padding: '24px',
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)',
-            }}
-          >
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '16px' }}>
-              Live Companion Status
+          {/* Floating Liquid Glass Telemetry Card */}
+          <div className="liquid-glass-panel" style={{ padding: '28px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '18px' }}>
+              Active Companion Telemetry
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#111827', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Smartphone size={20} color="#10b981" />
+                  <Smartphone size={20} color="#30d158" />
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>iPhone 16 Pro</div>
                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>1080p @ 60 FPS HDR • Fence Mount</div>
                   </div>
                 </div>
-                <span style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontSize: '11px', fontWeight: 700 }}>
+                <span style={{ padding: '3px 10px', borderRadius: '9999px', background: 'rgba(48, 209, 88, 0.15)', color: '#30d158', fontSize: '11px', fontWeight: 700 }}>
                   Active (12ms)
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: '#111827', borderRadius: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Watch size={20} color="#10b981" />
+                  <Watch size={20} color="#30d158" />
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Apple Watch Ultra 2</div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Haptic Engine Armed • 142 BPM</div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Haptics Armed • 142 BPM</div>
                   </div>
                 </div>
-                <span style={{ padding: '3px 8px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontSize: '11px', fontWeight: 700 }}>
+                <span style={{ padding: '3px 10px', borderRadius: '9999px', background: 'rgba(48, 209, 88, 0.15)', color: '#30d158', fontSize: '11px', fontWeight: 700 }}>
                   Ready (86%)
                 </span>
               </div>
@@ -779,44 +638,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLaunchApp, devices }
         </div>
       </section>
 
-      {/* ============================================================== */}
-      {/* SECTION 4: CTA BANNER                                          */}
-      {/* ============================================================== */}
+      {/* CTA Section */}
       <section
         style={{
           position: 'relative',
-          padding: '80px 48px 120px',
-          maxWidth: '900px',
+          padding: '80px 48px 140px',
+          maxWidth: '800px',
           margin: '0 auto',
           textAlign: 'center',
           zIndex: 10,
         }}
       >
-        <h2 style={{ fontSize: '42px', fontWeight: 900, letterSpacing: '-1px', color: '#ffffff', margin: '0 0 16px 0' }}>
-          Ready to Analyze Your Next Match?
+        <h2 style={{ fontSize: '42px', fontWeight: 800, letterSpacing: '-1px', color: '#ffffff', margin: '0 0 16px 0' }}>
+          Experience Tour-Level Intelligence.
         </h2>
-        <p style={{ color: '#94a3b8', fontSize: '16px', lineHeight: '1.6', margin: '0 0 32px 0' }}>
-          Upload your tennis video, review your categorized session history, or launch the live on-court line monitor.
+        <p style={{ color: '#94a3b8', fontSize: '16px', lineHeight: '1.6', margin: '0 0 36px 0' }}>
+          Launch the platform, upload your match footage, and review line calls with 3D precision.
         </p>
 
-        <button
-          onClick={onLaunchApp}
-          style={{
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '18px 42px',
-            fontSize: '17px',
-            fontWeight: 800,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '10px',
-            cursor: 'pointer',
-            boxShadow: '0 0 36px rgba(16, 185, 129, 0.6)',
-          }}
-        >
-          Launch Tennis AI Platform <ArrowRight size={20} />
+        <button onClick={onLaunchApp} className="glass-btn-prominent" style={{ padding: '16px 40px', fontSize: '16px' }}>
+          Launch Tennis AI Platform <ArrowRight size={18} />
         </button>
       </section>
     </div>

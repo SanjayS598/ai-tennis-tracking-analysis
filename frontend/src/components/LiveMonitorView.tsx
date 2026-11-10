@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, Volume2, VolumeX, Activity, Send } from 'lucide-react';
-import { BounceEvent } from '../types';
+import { Wifi, WifiOff, Volume2, VolumeX, ShieldCheck, Zap, AlertTriangle, Activity } from 'lucide-react';
+import { CallDecision } from '../types';
+
+interface LiveCallState {
+  call: CallDecision | 'READY';
+  confidence: number;
+  reason: string;
+  latencyMs: number;
+  timestamp: number;
+}
 
 export const LiveMonitorView: React.FC = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [latestCall, setLatestCall] = useState<{
-    call: string;
-    confidence: number;
-    reason: string;
-    latencyMs: number;
-    timestamp: number;
-  }>({
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [latestCall, setLatestCall] = useState<LiveCallState>({
     call: 'READY',
     confidence: 1.0,
-    reason: 'Waiting for match ball bounces...',
+    reason: 'Awaiting on-court ball impact...',
     latencyMs: 12,
     timestamp: Date.now(),
   });
-  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Play synthetic web audio beep
-  const playBeep = (freq: number, type: OscillatorType = 'sine') => {
+  const playBeep = (freq = 880, type: OscillatorType = 'sine') => {
     if (!soundEnabled) return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -28,8 +29,8 @@ export const LiveMonitorView: React.FC = () => {
       const gain = audioCtx.createGain();
       osc.type = type;
       osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
@@ -54,7 +55,7 @@ export const LiveMonitorView: React.FC = () => {
           const data = JSON.parse(event.data);
           if (data.type === 'LINE_CALL') {
             const now = Date.now();
-            const latency = data.server_time_ms ? Math.max(2, Math.round(now - data.server_time_ms)) : 15;
+            const latency = data.server_time_ms ? Math.max(2, Math.round(now - data.server_time_ms)) : 14;
             setLatestCall({
               call: data.event.call,
               confidence: data.event.call_confidence,
@@ -69,14 +70,16 @@ export const LiveMonitorView: React.FC = () => {
           }
         } catch (e) {}
       };
-    } catch (e) {}
+    } catch (e) {
+      setIsConnected(false);
+    }
 
     return () => {
       if (ws) ws.close();
     };
   }, [soundEnabled]);
 
-  const simulateCall = (call: 'IN' | 'OUT' | 'UNCERTAIN') => {
+  const triggerSimulatedCall = (call: CallDecision) => {
     setLatestCall({
       call,
       confidence: call === 'UNCERTAIN' ? 0.65 : 0.98,
@@ -92,105 +95,103 @@ export const LiveMonitorView: React.FC = () => {
 
   const getCallColor = () => {
     switch (latestCall.call) {
-      case 'IN': return { bg: '#064e3b', text: '#34d399', border: '#10b981' };
-      case 'OUT': return { bg: '#7f1d1d', text: '#f87171', border: '#ef4444' };
-      case 'UNCERTAIN': return { bg: '#78350f', text: '#fbbf24', border: '#f59e0b' };
-      default: return { bg: '#0f172a', text: '#94a3b8', border: '#334155' };
+      case 'IN': return { bg: 'rgba(48, 209, 88, 0.14)', text: '#30d158', border: 'rgba(48, 209, 88, 0.4)' };
+      case 'OUT': return { bg: 'rgba(255, 69, 58, 0.14)', text: '#ff453a', border: 'rgba(255, 69, 58, 0.4)' };
+      case 'UNCERTAIN': return { bg: 'rgba(255, 159, 10, 0.14)', text: '#ff9f0a', border: 'rgba(255, 159, 10, 0.4)' };
+      default: return { bg: 'rgba(255, 255, 255, 0.04)', text: '#94a3b8', border: 'rgba(255, 255, 255, 0.08)' };
     }
   };
 
   const colors = getCallColor();
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '24px' }}>
-      {/* Status Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', background: '#0b0f19', padding: '16px 20px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div style={{ maxWidth: '880px', margin: '0 auto', padding: '24px' }}>
+      {/* Floating Status Bar */}
+      <div className="liquid-glass-capsule" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', padding: '12px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isConnected ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontWeight: 600 }}>
-              <Wifi size={18} /> WebSocket Connected (ws://localhost:8765)
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#30d158', fontWeight: 600, fontSize: '13px' }}>
+              <Wifi size={16} /> Live WebSocket Connected (:8765)
             </span>
           ) : (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
-              <WifiOff size={18} /> Server Standby (Simulation Mode Active)
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8', fontSize: '13px' }}>
+              <WifiOff size={16} /> Simulation Mode Active
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            style={{
-              background: '#1f2937',
-              color: soundEnabled ? '#34d399' : '#6b7280',
-              border: 'none',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '13px',
-            }}
-          >
-            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />} Audio Cues
-          </button>
-        </div>
+        <button
+          onClick={() => setSoundEnabled(!soundEnabled)}
+          className="glass-btn"
+          style={{ padding: '6px 14px', fontSize: '12px' }}
+        >
+          {soundEnabled ? <Volume2 size={15} color="#30d158" /> : <VolumeX size={15} color="#94a3b8" />}
+          <span>Audio Cues</span>
+        </button>
       </div>
 
-      {/* Hero Display Card (Watch & On-Court View) */}
+      {/* Main Full-Screen Display Card */}
       <div
+        className="apple-card"
         style={{
           background: colors.bg,
-          border: `3px solid ${colors.border}`,
+          borderColor: colors.border,
           borderRadius: '24px',
-          padding: '60px 24px',
+          padding: '64px 32px',
           textAlign: 'center',
-          boxShadow: `0 20px 50px -10px ${colors.border}40`,
-          transition: 'all 0.3s ease',
+          boxShadow: `0 20px 60px ${colors.border}22`,
+          marginBottom: '28px',
+          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        <div style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '2px', color: colors.text, opacity: 0.8, marginBottom: '8px' }}>
-          Official Line Call
+        <div style={{ fontSize: '12px', fontWeight: 700, color: colors.text, textTransform: 'uppercase', letterSpacing: '1px' }}>
+          Live On-Court Verdict
         </div>
 
-        <div style={{ fontSize: '100px', fontWeight: 900, color: colors.text, letterSpacing: '-2px', lineHeight: 1 }}>
+        <div style={{ fontSize: '76px', fontWeight: 900, color: colors.text, letterSpacing: '-2px', margin: '14px 0 10px 0' }}>
           {latestCall.call}
         </div>
 
-        <div style={{ fontSize: '20px', fontWeight: 600, color: '#f3f4f6', marginTop: '16px' }}>
+        <div style={{ fontSize: '16px', color: '#e2e8f0', fontWeight: 500, maxWidth: '420px', margin: '0 auto 24px' }}>
           {latestCall.reason}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '24px', fontSize: '14px', color: '#cbd5e1' }}>
-          <span>Confidence: <strong>{(latestCall.confidence * 100).toFixed(0)}%</strong></span>
-          <span>Delivery Latency: <strong>{latestCall.latencyMs} ms</strong></span>
+        {/* Telemetry pill */}
+        <div style={{ display: 'inline-flex', gap: '16px', padding: '8px 18px', background: 'rgba(0, 0, 0, 0.35)', borderRadius: '9999px', fontSize: '12px', color: '#94a3b8' }}>
+          <span>Latency: <strong style={{ color: '#0a84ff' }}>{latestCall.latencyMs} ms</strong></span>
+          <span>•</span>
+          <span>Confidence: <strong style={{ color: '#30d158' }}>{(latestCall.confidence * 100).toFixed(0)}%</strong></span>
         </div>
       </div>
 
-      {/* Simulator Controls */}
-      <div style={{ marginTop: '24px', background: '#0b0f19', padding: '20px', borderRadius: '12px', border: '1px solid #1f2937' }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: '#94a3b8', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Activity size={16} /> Manual Trigger Simulation (Test Watch & On-Screen Audio)
+      {/* Manual Trigger Buttons for On-Court Testing */}
+      <div className="apple-card" style={{ padding: '24px', textAlign: 'center' }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
+          Simulate Line Calls (Haptic Test)
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
           <button
-            onClick={() => simulateCall('IN')}
-            style={{ padding: '12px', background: '#064e3b', color: '#34d399', border: '1px solid #10b981', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+            onClick={() => triggerSimulatedCall('IN')}
+            className="glass-btn"
+            style={{ borderColor: 'rgba(48, 209, 88, 0.4)', color: '#30d158' }}
           >
-            Trigger "IN"
+            <ShieldCheck size={16} /> Simulate IN (.success)
           </button>
+
           <button
-            onClick={() => simulateCall('OUT')}
-            style={{ padding: '12px', background: '#7f1d1d', color: '#f87171', border: '1px solid #ef4444', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+            onClick={() => triggerSimulatedCall('OUT')}
+            className="glass-btn"
+            style={{ borderColor: 'rgba(255, 69, 58, 0.4)', color: '#ff453a' }}
           >
-            Trigger "OUT"
+            <Zap size={16} /> Simulate OUT (.failure)
           </button>
+
           <button
-            onClick={() => simulateCall('UNCERTAIN')}
-            style={{ padding: '12px', background: '#78350f', color: '#fbbf24', border: '1px solid #f59e0b', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+            onClick={() => triggerSimulatedCall('UNCERTAIN')}
+            className="glass-btn"
+            style={{ borderColor: 'rgba(255, 159, 10, 0.4)', color: '#ff9f0a' }}
           >
-            Trigger "UNCERTAIN"
+            <AlertTriangle size={16} /> Simulate UNCERTAIN (.retry)
           </button>
         </div>
       </div>

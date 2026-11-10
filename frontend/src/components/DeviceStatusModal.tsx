@@ -1,5 +1,5 @@
 import React from 'react';
-import { Smartphone, Watch, X, Wifi, Battery, Heart, Zap, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Smartphone, Watch, X, Wifi } from 'lucide-react';
 import { DeviceStatusResponse } from '../types';
 
 interface DeviceStatusModalProps {
@@ -28,148 +28,174 @@ export const DeviceStatusModal: React.FC<DeviceStatusModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(3, 7, 18, 0.85)',
-        backdropFilter: 'blur(16px)',
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 100,
         padding: '24px',
       }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
+        className="liquid-glass-panel"
         style={{
-          background: '#0b0f19',
-          border: '1px solid #1f2937',
-          borderRadius: '20px',
           width: '100%',
-          maxWidth: '600px',
+          maxWidth: '560px',
           padding: '32px',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
           position: 'relative',
         }}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
+          className="glass-btn"
           style={{
             position: 'absolute',
             top: '20px',
             right: '20px',
-            background: '#1f2937',
-            border: 'none',
-            borderRadius: '8px',
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
+            padding: 0,
+            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#94a3b8',
-            cursor: 'pointer',
+            color: '#86868b',
           }}
         >
           <X size={16} />
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <Wifi size={22} color="#10b981" />
-          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '10px',
+              background: 'rgba(10, 132, 255, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Wifi size={18} color="#0a84ff" />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: '#f5f5f7', letterSpacing: '-0.02em' }}>
             Connected Apple Hardware
           </h2>
         </div>
-        <p style={{ color: '#94a3b8', fontSize: '13px', margin: '0 0 24px 0' }}>
+        <p style={{ color: '#86868b', fontSize: '13px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
           Real-time low-latency WebSocket transport bridging stationary iPhone video to Apple Watch wrist haptics.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* iPhone Status Card */}
-          <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Smartphone size={20} color="#10b981" />
+          <div className="apple-card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '10px',
+                    background: 'rgba(48, 209, 88, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Smartphone size={20} color="#30d158" />
                 </div>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>{iphone.name}</h4>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>Stationary Fence Mount Camera</span>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#f5f5f7' }}>{iphone.name}</h4>
+                  <span style={{ fontSize: '12px', color: '#86868b' }}>Stationary Baseline Mount</span>
                 </div>
               </div>
 
               <button
                 onClick={() => onToggleDeviceSimulation('iphone', !iphone.connected)}
+                className="glass-btn"
                 style={{
-                  background: iphone.connected ? 'rgba(16, 185, 129, 0.2)' : '#1f2937',
-                  border: iphone.connected ? '1px solid #10b981' : '1px solid #374151',
-                  color: iphone.connected ? '#34d399' : '#94a3b8',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
+                  padding: '5px 12px',
                   fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: iphone.connected ? '#30d158' : '#86868b',
                 }}
               >
                 {iphone.connected ? 'Connected' : 'Disconnected'} (Toggle)
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '12px' }}>
-              <div style={{ background: '#0b0f19', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ color: '#6b7280' }}>Stream</div>
-                <div style={{ color: '#ffffff', fontWeight: 600, marginTop: '2px' }}>{iphone.mode || '1080p @ 60 FPS'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
+                <div style={{ color: '#86868b', fontSize: '11px', fontWeight: 500 }}>Stream</div>
+                <div style={{ color: '#f5f5f7', fontWeight: 600, fontSize: '13px', marginTop: '3px' }}>{iphone.mode || '1080p @ 60 FPS'}</div>
               </div>
-              <div style={{ background: '#0b0f19', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ color: '#6b7280' }}>Battery</div>
-                <div style={{ color: '#ffffff', fontWeight: 600, marginTop: '2px' }}>{iphone.battery_pct}%</div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
+                <div style={{ color: '#86868b', fontSize: '11px', fontWeight: 500 }}>Battery</div>
+                <div style={{ color: '#f5f5f7', fontWeight: 600, fontSize: '13px', marginTop: '3px' }}>{iphone.battery_pct}%</div>
               </div>
-              <div style={{ background: '#0b0f19', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ color: '#6b7280' }}>Transport Latency</div>
-                <div style={{ color: '#38bdf8', fontWeight: 600, marginTop: '2px' }}>{iphone.latency_ms || 12} ms</div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
+                <div style={{ color: '#86868b', fontSize: '11px', fontWeight: 500 }}>Transport Latency</div>
+                <div style={{ color: '#0a84ff', fontWeight: 600, fontSize: '13px', marginTop: '3px' }}>{iphone.latency_ms || 12} ms</div>
               </div>
             </div>
           </div>
 
           {/* Apple Watch Status Card */}
-          <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: '14px', padding: '18px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '8px', background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Watch size={20} color="#38bdf8" />
+          <div className="apple-card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '10px',
+                    background: 'rgba(10, 132, 255, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Watch size={20} color="#0a84ff" />
                 </div>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>{watch.name}</h4>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>Wrist Haptic Engine & Workout</span>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#f5f5f7' }}>{watch.name}</h4>
+                  <span style={{ fontSize: '12px', color: '#86868b' }}>Wrist Haptic Engine & Workout</span>
                 </div>
               </div>
 
               <button
                 onClick={() => onToggleDeviceSimulation('watch', !watch.connected)}
+                className="glass-btn"
                 style={{
-                  background: watch.connected ? 'rgba(16, 185, 129, 0.2)' : '#1f2937',
-                  border: watch.connected ? '1px solid #10b981' : '1px solid #374151',
-                  color: watch.connected ? '#34d399' : '#94a3b8',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
+                  padding: '5px 12px',
                   fontSize: '11px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
+                  fontWeight: 600,
+                  color: watch.connected ? '#30d158' : '#86868b',
                 }}
               >
                 {watch.connected ? 'Armed' : 'Offline'} (Toggle)
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '12px' }}>
-              <div style={{ background: '#0b0f19', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ color: '#6b7280' }}>Heart Rate</div>
-                <div style={{ color: '#f87171', fontWeight: 600, marginTop: '2px' }}>{watch.heart_rate_bpm || 142} BPM</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
+                <div style={{ color: '#86868b', fontSize: '11px', fontWeight: 500 }}>Heart Rate</div>
+                <div style={{ color: '#ff453a', fontWeight: 600, fontSize: '13px', marginTop: '3px' }}>{watch.heart_rate_bpm || 142} BPM</div>
               </div>
-              <div style={{ background: '#0b0f19', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ color: '#6b7280' }}>Active Calories</div>
-                <div style={{ color: '#fbbf24', fontWeight: 600, marginTop: '2px' }}>{watch.active_calories || 385} kcal</div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
+                <div style={{ color: '#86868b', fontSize: '11px', fontWeight: 500 }}>Active Calories</div>
+                <div style={{ color: '#ff9f0a', fontWeight: 600, fontSize: '13px', marginTop: '3px' }}>{watch.active_calories || 385} kcal</div>
               </div>
-              <div style={{ background: '#0b0f19', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ color: '#6b7280' }}>Battery</div>
-                <div style={{ color: '#ffffff', fontWeight: 600, marginTop: '2px' }}>{watch.battery_pct}%</div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px 12px', borderRadius: '10px' }}>
+                <div style={{ color: '#86868b', fontSize: '11px', fontWeight: 500 }}>Battery</div>
+                <div style={{ color: '#f5f5f7', fontWeight: 600, fontSize: '13px', marginTop: '3px' }}>{watch.battery_pct}%</div>
               </div>
             </div>
           </div>
