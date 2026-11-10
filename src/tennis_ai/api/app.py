@@ -4,11 +4,12 @@ import asyncio
 from contextlib import asynccontextmanager
 import json
 from pathlib import Path
+import shutil
 import time
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from tennis_ai.api.device_discovery import device_manager
@@ -125,7 +126,7 @@ def list_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
                     try:
                         with open(json_path, "r", encoding="utf-8") as f:
                             data = json.load(f)
-                        sess_user = data.get("user_id", "user_sanjay_shankar")
+                        sess_user = data.get("user_id")
                         if user_id and sess_user != user_id:
                             continue
                         events = data.get("events", [])
@@ -137,7 +138,7 @@ def list_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
                             "session_id": session_dir.name,
                             "display_id": data.get("session_id", session_dir.name),
                             "session_type": _determine_session_type(session_dir.name, data),
-                            "player_name": data.get("player_name", "Sanjay Shankar"),
+                            "player_name": data.get("player_name", "Player"),
                             "user_id": sess_user,
                             "created_at": data.get("created_at"),
                             "source_video": data.get("video_metadata", {}).get("source_video"),
@@ -205,17 +206,94 @@ def update_user_profile(user_id: str, profile: Dict[str, Any]) -> Dict[str, Any]
     return profile
 
 
-@app.get("/api/sessions/{session_id}/video")
-def get_session_video(session_id: str) -> FileResponse:
-    """Stream annotated match video."""
+@app.delete("/api/sessions/{session_id}")
+def delete_session(session_id: str) -> Dict[str, Any]:
+    """Delete an analyzed match session and all associated files."""
+    s_dir = _find_session_dir(session_id)
+    if not s_dir or not s_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+    try:
+        shutil.rmtree(s_dir)
+        return {"status": "deleted", "session_id": session_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
+
+
+@app.api_route("/api/sessions/{session_id}/video", methods=["GET", "HEAD"])
+def get_session_video(session_id: str, request: Request) -> Response:
+    """Stream annotated or source match video with HTTP 206 Range support for realtime seeking."""
     s_dir = _find_session_dir(session_id)
     if not s_dir:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found")
+
     video_path = s_dir / "annotated_match.mp4"
     if not video_path.exists():
-        raise HTTPException(status_code=404, detail="Annotated video not available for this session")
+        candidates = list(s_dir.glob("*.mp4"))
+        if candidates:
+            video_path = candidates[0]
+        else:
+            meta_json = s_dir / "session.json"
+            if meta_json.exists():
+                try:
+                    with open(meta_json, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    src_v = meta.get("video_metadata", {}).get("source_video")
+                    if src_v and Path(src_v).exists():
+                        video_path = Path(src_v)
+                except Exception:
+                    pass
 
-    return FileResponse(str(video_path), media_type="video/mp4")
+    if not video_path or not video_path.exists():
+        raise HTTPException(status_code=404, detail="Video file not found for this session")
+
+    file_size = video_path.stat().st_size
+    range_header = request.headers.get("range")
+
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Type": "video/mp4",
+    }
+
+    if request.method == "HEAD":
+        headers["Content-Length"] = str(file_size)
+        return Response(status_code=200, headers=headers, media_type="video/mp4")
+
+    if not range_header:
+        headers["Content-Length"] = str(file_size)
+        return FileResponse(str(video_path), headers=headers, media_type="video/mp4")
+
+    try:
+        range_val = range_header.strip().lower()
+        if not range_val.startswith("bytes="):
+            return FileResponse(str(video_path), headers=headers, media_type="video/mp4")
+
+        parts = range_val[6:].split("-")
+        start = int(parts[0]) if parts[0] else 0
+        end = int(parts[1]) if len(parts) > 1 and parts[1] else file_size - 1
+        end = min(end, file_size - 1)
+        length = end - start + 1
+
+        def iterfile(start_pos: int, chunk_len: int):
+            with open(video_path, "rb") as f:
+                f.seek(start_pos)
+                bytes_left = chunk_len
+                while bytes_left > 0:
+                    chunk = f.read(min(bytes_left, 1024 * 64))
+                    if not chunk:
+                        break
+                    bytes_left -= len(chunk)
+                    yield chunk
+
+        headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
+        headers["Content-Length"] = str(length)
+        return StreamingResponse(
+            iterfile(start, length),
+            status_code=206,
+            headers=headers,
+            media_type="video/mp4",
+        )
+    except Exception:
+        return FileResponse(str(video_path), headers=headers, media_type="video/mp4")
 
 
 @app.post("/api/calibrate")
@@ -487,15 +565,15 @@ async def websocket_device_endpoint(websocket: WebSocket) -> None:
 
 @app.post("/api/upload")
 async def upload_and_process_session(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    sample_filename: Optional[str] = Form(None),
     session_type: str = Form("match"),
     player_name: str = Form("Sanjay Shankar"),
     user_id: str = Form("user_sanjay_shankar"),
     is_doubles: bool = Form(False),
     render_video: bool = Form(True),
 ) -> Dict[str, Any]:
-    """Upload a match/rally/serve video and execute the end-to-end analysis pipeline."""
-    filename = file.filename or f"upload_{int(time.time())}.mp4"
+    """Upload a match/rally/serve video or pick a court sample to analyze."""
     clean_type = session_type.lower()
     if clean_type not in ["match", "rally", "serve"]:
         clean_type = "match"
@@ -504,10 +582,22 @@ async def upload_and_process_session(
     output_dir = OUTPUTS_DIR / session_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    video_dest = output_dir / filename
-    contents = await file.read()
-    with open(video_dest, "wb") as f:
-        f.write(contents)
+    video_dest: Optional[Path] = None
+
+    if file and file.filename:
+        filename = file.filename
+        video_dest = output_dir / filename
+        contents = await file.read()
+        with open(video_dest, "wb") as f:
+            f.write(contents)
+    elif sample_filename:
+        sample_path = SAMPLES_DIR / sample_filename
+        if not sample_path.exists():
+            raise HTTPException(status_code=400, detail=f"Sample video '{sample_filename}' not found")
+        video_dest = output_dir / sample_filename
+        shutil.copy2(sample_path, video_dest)
+    else:
+        raise HTTPException(status_code=400, detail="Please upload a video file or select a court sample clip.")
 
     calib_json = Path("configs/match_clip_1_calib.json")
     if not calib_json.exists():

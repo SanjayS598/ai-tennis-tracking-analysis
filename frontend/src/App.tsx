@@ -144,6 +144,22 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
+        if (selectedSessionId === sessionId) {
+          setSelectedSessionId('');
+          setCurrentSession(null);
+          setActiveTab('SESSIONS');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+    }
+  };
+
   if (view === 'LANDING') {
     return (
       <ErrorBoundary>
@@ -339,6 +355,7 @@ export const App: React.FC = () => {
               currentUser={currentUser}
               onSelectSession={handleSelectSessionAndReplay}
               onOpenUpload={() => setIsUploadOpen(true)}
+              onDeleteSession={handleDeleteSession}
             />
           )}
 
@@ -348,6 +365,7 @@ export const App: React.FC = () => {
               sessionsList={sessions}
               onSelectSession={(id) => setSelectedSessionId(id)}
               onOpenUpload={() => setIsUploadOpen(true)}
+              onDeleteSession={handleDeleteSession}
             />
           )}
 

@@ -133,3 +133,33 @@ def test_api_session_enrichment_shots_and_biomechanics(client: TestClient):
             assert "frames" in detail["biomechanics"]
             assert "stroke_counts" in detail["biomechanics"]
 
+
+def test_api_delete_session_not_found(client: TestClient):
+    res = client.delete("/api/sessions/nonexistent_session_123")
+    assert res.status_code == 404
+
+
+def test_api_upload_sample_clip(client: TestClient):
+    # Test uploading a session from an available court sample
+    data = {
+        "sample_filename": "sample_tennis.mp4",
+        "session_type": "rally",
+        "player_name": "Sanjay Shankar",
+        "user_id": "user_sanjay_shankar",
+        "render_video": "false",
+    }
+    res = client.post("/api/upload", data=data)
+    assert res.status_code == 200
+    result = res.json()
+    assert result["user_id"] == "user_sanjay_shankar"
+    assert result["player_name"] == "Sanjay Shankar"
+    assert "shots" in result
+    assert "session_id" in result
+
+    # Test that delete works on this newly created session
+    sid = result["session_id"]
+    del_res = client.delete(f"/api/sessions/{sid}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "deleted"
+
+
