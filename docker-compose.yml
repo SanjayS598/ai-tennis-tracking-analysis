@@ -1,0 +1,25 @@
+services:
+  tennis-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tennis-ai:latest
+    container_name: tennis-ai-platform
+    ports:
+      - "8000:8000"   # Unified REST API + React Web Dashboard + /ws/live
+      - "8765:8765"   # Standalone Live WebSocket Event Transport (iOS/Apple Watch)
+    volumes:
+      - ./outputs:/app/outputs
+      - ./data/samples:/app/data/samples
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=8000
+      - WS_PORT=8765
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

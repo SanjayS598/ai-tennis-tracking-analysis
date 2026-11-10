@@ -2,17 +2,51 @@
 
 AI-powered tennis tracking application similar in concept to SwingVision, designed to record tennis sessions from a stationary camera behind the baseline, provide real-time line calls (`IN`, `OUT`, `UNCERTAIN`), track ball trajectories, and analyze player biomechanics using consumer hardware (Apple Silicon M4 + iPhone/Watch).
 
-## 1. Quick Start (Apple Silicon M4 macOS)
+## 1. Containerized Quick Start (Docker & Docker Compose)
+
+The entire full-stack system (FastAPI backend, PyTorch TrackNet, MediaPipe biomechanics, and compiled React + TypeScript dashboard) is fully containerized using a multi-stage Docker build.
+
+### Running with Docker Compose (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/SanjayS598/ai-tennis-tracking-analysis.git
+cd ai-tennis-tracking-analysis
+
+# Build and start the platform in background
+docker compose up --build -d
+```
+
+Once started:
+- **Web Dashboard & REST API:** Open [http://localhost:8000](http://localhost:8000)
+- **Live Event Transport (iOS / Apple Watch):** Connect to `ws://localhost:8765` or `ws://localhost:8000/ws/live`
+- **Session Outputs:** Automatically synchronized to the host at `./outputs/`
+- **Video Samples & Configs:** Mounted from `./data/samples/` and `./configs/`
+
+### Running Match Processing via Docker
+
+```bash
+docker compose exec tennis-ai python -m tennis_ai.video.process \
+  --input data/samples/match_clip_1.mp4 \
+  --output outputs/session_001 \
+  --calibration configs/match_clip_1_calib.json \
+  --render
+```
+
+### Stopping the Container
+```bash
+docker compose down
+```
+
+---
+
+## 2. Native Quick Start (Apple Silicon M4 macOS)
 
 This project uses [`uv`](https://docs.astral.sh/uv/) for Python environment and dependency management.
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd ai-tennis-tracking-analysis
-
 # Create virtual environment with Python 3.11
 uv venv --python 3.11
 source .venv/bin/activate
@@ -29,7 +63,7 @@ pytest --cov=tennis_ai --cov-report=term-missing
 
 ---
 
-## 2. Core Capabilities & Workflows
+## 3. Core Capabilities & Workflows
 
 ### A. Court Geometry & Calibration
 Map image pixels $(u, v)$ to official metric court space $(X, Y)$ in meters (ITF standards) with sub-pixel homography:
