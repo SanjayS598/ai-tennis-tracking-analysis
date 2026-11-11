@@ -16,6 +16,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PORT=8000
       - WS_PORT=8765
+      - HOST_LAN_IP=172.16.5.195
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]

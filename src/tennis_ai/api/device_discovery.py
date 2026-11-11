@@ -20,6 +20,9 @@ from fastapi import WebSocket
 
 def get_local_lan_ip() -> str:
     """Determine the host's primary local area network IPv4 address."""
+    env_ip = os.environ.get("HOST_LAN_IP")
+    if env_ip:
+        return env_ip
     try:
         # Connect to an external address to get routing IP without sending packets
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -27,6 +30,14 @@ def get_local_lan_ip() -> str:
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
+        # If running inside docker bridge network, try host resolution
+        if ip.startswith("172.17.") or ip.startswith("172.18.") or ip.startswith("172.19.") or ip.startswith("172.20."):
+            try:
+                host_ip = socket.gethostbyname("host.docker.internal")
+                if host_ip and not host_ip.startswith("127."):
+                    return host_ip
+            except Exception:
+                pass
         return ip
     except Exception:
         try:
