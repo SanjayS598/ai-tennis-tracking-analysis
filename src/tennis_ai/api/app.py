@@ -577,6 +577,18 @@ async def websocket_device_endpoint(websocket: WebSocket) -> None:
 SESSION_JOBS: Dict[str, Dict[str, Any]] = {}
 
 
+def _update_job_status(session_id: str, output_dir: Optional[Path], status_dict: Dict[str, Any]) -> None:
+    """Update in-memory job status and persist job_status.json to session output directory."""
+    SESSION_JOBS[session_id] = status_dict
+    if output_dir:
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            with open(output_dir / "job_status.json", "w", encoding="utf-8") as f:
+                json.dump(status_dict, f, indent=2)
+        except Exception:
+            pass
+
+
 def _run_processing_job(
     session_id: str,
     video_dest: Path,
@@ -587,22 +599,27 @@ def _run_processing_job(
     is_doubles: bool,
     render_video: bool,
 ) -> Dict[str, Any]:
-    """Execute pipeline processing job, updating live progress in SESSION_JOBS."""
-    SESSION_JOBS[session_id] = {
+    """Execute pipeline processing job, updating live progress in SESSION_JOBS and on disk."""
+    _update_job_status(session_id, output_dir, {
         "status": "processing",
         "progress_pct": 10,
         "stage": "Calibrating court geometry & homography...",
         "error": None,
         "session_id": session_id,
-    }
+    })
 
     try:
         calib_json = Path("configs/match_clip_1_calib.json")
         if not calib_json.exists():
             calib_json = None
 
-        SESSION_JOBS[session_id]["progress_pct"] = 30
-        SESSION_JOBS[session_id]["stage"] = "Running PyTorch TrackNet deep neural network..."
+        _update_job_status(session_id, output_dir, {
+            "status": "processing",
+            "progress_pct": 30,
+            "stage": "Running PyTorch TrackNet deep neural network...",
+            "error": None,
+            "session_id": session_id,
+        })
 
         report = process_video(
             input_path=video_dest,
@@ -613,8 +630,13 @@ def _run_processing_job(
             is_doubles=is_doubles,
         )
 
-        SESSION_JOBS[session_id]["progress_pct"] = 70
-        SESSION_JOBS[session_id]["stage"] = "Extracting player kinematics & court side tracking..."
+        _update_job_status(session_id, output_dir, {
+            "status": "processing",
+            "progress_pct": 70,
+            "stage": "Extracting player kinematics & court side tracking...",
+            "error": None,
+            "session_id": session_id,
+        })
 
         data = report.model_dump()
         data["session_id"] = session_id
@@ -627,22 +649,22 @@ def _run_processing_job(
         with open(output_dir / "session.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
-        SESSION_JOBS[session_id] = {
+        _update_job_status(session_id, output_dir, {
             "status": "completed",
             "progress_pct": 100,
             "stage": "Analysis Complete",
             "error": None,
             "session_id": session_id,
-        }
+        })
         return data
     except Exception as exc:
-        SESSION_JOBS[session_id] = {
+        _update_job_status(session_id, output_dir, {
             "status": "error",
             "progress_pct": 0,
             "stage": "Processing Failed",
             "error": str(exc),
             "session_id": session_id,
-        }
+        })
         raise
 
 
@@ -652,8 +674,38 @@ def get_session_status(session_id: str) -> Dict[str, Any]:
     if session_id in SESSION_JOBS:
         return SESSION_JOBS[session_id]
 
-    s_dir = _find_session_dir(session_id)
-    if s_dir and (s_dir / "session.json").exists():
+    s_dir = OUTPUTS_DIR / session_id
+    if s_dir.exists():
+        job_file = s_dir / "job_status.json"
+        if job_file.exists():
+            try:
+                with open(job_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+
+        if (s_dir / "session.json").exists():
+            return {
+                "status": "completed",
+                "progress_pct": 100,
+                "stage": "Analysis Complete",
+                "error": None,
+                "session_id": session_id,
+            }
+
+        # Check if video files exist in directory
+        video_files = [f for f in s_dir.iterdir() if f.suffix.lower() in [".mp4", ".mov", ".avi", ".mkv"]]
+        if video_files:
+            return {
+                "status": "processing",
+                "progress_pct": 50,
+                "stage": "Processing video frames & ball trajectory...",
+                "error": None,
+                "session_id": session_id,
+            }
+
+    found_dir = _find_session_dir(session_id)
+    if found_dir and (found_dir / "session.json").exists():
         return {
             "status": "completed",
             "progress_pct": 100,
@@ -710,13 +762,13 @@ async def upload_and_process_session(
         raise HTTPException(status_code=400, detail="Please upload a video file or select a court sample clip.")
 
     if async_mode:
-        SESSION_JOBS[session_id] = {
+        _update_job_status(session_id, output_dir, {
             "status": "processing",
             "progress_pct": 5,
             "stage": "Video file saved. Queuing pipeline...",
             "error": None,
             "session_id": session_id,
-        }
+        })
         background_tasks.add_task(
             _run_processing_job,
             session_id=session_id,

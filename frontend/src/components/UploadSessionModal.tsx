@@ -33,6 +33,7 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
   const [isDoubles, setIsDoubles] = useState<boolean>(false);
   const [renderVideo, setRenderVideo] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [progressPct, setProgressPct] = useState<number>(10);
   const [statusStep, setStatusStep] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -60,8 +61,15 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
     }
 
     setIsProcessing(true);
+    setProgressPct(10);
     setErrorMessage(null);
-    setStatusStep('Ingesting video footage to processing pipeline...');
+
+    if (sourceType === 'LOCAL' && file) {
+      const mbSize = (file.size / (1024 * 1024)).toFixed(1);
+      setStatusStep(`Uploading video to server (${mbSize} MB)...`);
+    } else {
+      setStatusStep('Preparing court sample video clip...');
+    }
 
     const formData = new FormData();
     if (sourceType === 'LOCAL' && file) {
@@ -74,26 +82,15 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
     formData.append('user_id', currentUser?.id || 'user_sanjay_shankar');
     formData.append('is_doubles', String(isDoubles));
     formData.append('render_video', String(renderVideo));
-
-    const stepInterval = setInterval(() => {
-      setStatusStep((prev) => {
-        if (prev.includes('Ingesting')) return 'Calibrating ITF court corners & sub-pixel homography...';
-        if (prev.includes('Calibrating')) return 'Executing PyTorch TrackNet deep neural network ball detection...';
-        if (prev.includes('TrackNet')) return 'Computing parabolic trajectory inflection & court boundary intersections...';
-        if (prev.includes('Computing parabolic')) return 'Extracting MediaPipe biomechanical landmarks & stroke classification...';
-        return 'Finalizing session JSON report & rendering annotated 1080p replay...';
-      });
-    }, 4000);
+    formData.append('async_mode', 'true');
 
     try {
-      formData.append('async_mode', 'true');
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (!res.ok) {
-        clearInterval(stepInterval);
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || `Upload failed with HTTP ${res.status}`);
       }
@@ -102,20 +99,23 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
       const sessionId = uploadResp.session_id;
 
       if (!sessionId) {
-        clearInterval(stepInterval);
         throw new Error('No session ID returned from server upload.');
       }
 
       // If server returned completed report directly
       if (uploadResp.status !== 'processing' && uploadResp.video_metadata) {
-        clearInterval(stepInterval);
+        setProgressPct(100);
         setIsProcessing(false);
         onSessionCreated(uploadResp);
         onClose();
         return;
       }
 
+      setProgressPct(20);
+      setStatusStep('Video uploaded. Initializing TrackNet pipeline...');
+
       // Poll status every 1.5 seconds until completed or error
+      let notFoundRetries = 0;
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/sessions/${sessionId}/status`);
@@ -124,9 +124,12 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
             if (statusData.stage) {
               setStatusStep(statusData.stage);
             }
+            if (typeof statusData.progress_pct === 'number' && statusData.progress_pct > 0) {
+              setProgressPct(statusData.progress_pct);
+            }
             if (statusData.status === 'completed') {
               clearInterval(pollInterval);
-              clearInterval(stepInterval);
+              setProgressPct(100);
               const reportRes = await fetch(`/api/sessions/${sessionId}`);
               if (reportRes.ok) {
                 const report: SessionReport = await reportRes.json();
@@ -138,9 +141,15 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
               }
             } else if (statusData.status === 'error') {
               clearInterval(pollInterval);
-              clearInterval(stepInterval);
               setIsProcessing(false);
               setErrorMessage(statusData.error || 'Pipeline processing failed.');
+            } else if (statusData.status === 'not_found') {
+              notFoundRetries += 1;
+              if (notFoundRetries > 30) {
+                clearInterval(pollInterval);
+                setIsProcessing(false);
+                setErrorMessage('Session not found or was interrupted by server restart. Please try uploading again.');
+              }
             }
           }
         } catch {
@@ -148,7 +157,6 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
         }
       }, 1500);
     } catch (err: any) {
-      clearInterval(stepInterval);
       setIsProcessing(false);
       setErrorMessage(err.message || 'An error occurred while processing the session.');
     }
@@ -279,18 +287,22 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
             <h3 style={{ fontSize: '18px', fontWeight: 600, margin: '0 0 8px 0', color: '#f5f5f7', letterSpacing: '-0.01em' }}>
               Analyzing Tennis Session...
             </h3>
-            <p style={{ fontSize: '13px', color: '#30d158', fontWeight: 500, minHeight: '36px', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '13px', color: '#30d158', fontWeight: 500, minHeight: '28px', lineHeight: 1.4, margin: '0 0 16px 0' }}>
               {statusStep}
             </p>
-            <div style={{ width: '100%', height: '4px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden', marginTop: '20px' }}>
+            <div style={{ width: '100%', height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '999px', overflow: 'hidden' }}>
               <div
                 style={{
-                  width: '75%',
+                  width: `${Math.min(100, Math.max(8, progressPct))}%`,
                   height: '100%',
                   background: 'linear-gradient(90deg, #30d158 0%, #0a84ff 100%)',
                   borderRadius: '999px',
+                  transition: 'width 0.4s ease-out',
                 }}
               />
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px', fontWeight: 600 }}>
+              {progressPct}% Completed
             </div>
           </div>
         ) : (
