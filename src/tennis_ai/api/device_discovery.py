@@ -194,6 +194,18 @@ class CompanionDeviceManager:
         self._websockets.pop(client_id, None)
         self._connected_clients.pop(client_id, None)
 
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        """Broadcast JSON message to all connected physical iPhone and Apple Watch companion clients."""
+        text = json.dumps(message)
+        dead = []
+        for cid, ws in list(self._websockets.items()):
+            try:
+                await ws.send_text(text)
+            except Exception:
+                dead.append(cid)
+        for cid in dead:
+            self.unregister_client(cid)
+
     def scan_hardware(self, force: bool = False) -> Dict[str, Any]:
         """Trigger or retrieve cached physical hardware scan results."""
         now = time.time()

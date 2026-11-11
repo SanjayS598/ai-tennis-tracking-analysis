@@ -163,3 +163,30 @@ def test_api_upload_sample_clip(client: TestClient):
     assert del_res.json()["status"] == "deleted"
 
 
+def test_api_challenge_endpoint(client: TestClient):
+    # Test high-speed Hawk-Eye challenge on a short rolling buffer clip
+    data = {
+        "sample_filename": "sample_tennis.mp4",
+        "player_name": "Sanjay Shankar",
+        "user_id": "user_sanjay_shankar",
+    }
+    res = client.post("/api/challenge", data=data)
+    assert res.status_code == 200
+    result = res.json()
+    assert result["status"] == "success"
+    assert "verdict" in result
+    assert result["verdict"] in ["IN", "OUT", "UNCERTAIN"]
+    assert "margin_cm" in result
+    assert "audio_announcement" in result
+    assert "haptic_pattern" in result
+    assert "bounce_pos" in result
+    assert "shots" in result
+
+    # Cleanup challenge session
+    sid = result["session_id"]
+    del_res = client.delete(f"/api/sessions/{sid}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "deleted"
+
+
+

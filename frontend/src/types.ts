@@ -86,7 +86,7 @@ export interface UserProfile {
   utr_rating: string;
 }
 
-export type SessionType = 'match' | 'rally' | 'serve';
+export type SessionType = 'match' | 'rally' | 'serve' | 'challenge';
 
 export interface SessionReport {
   session_id: string;

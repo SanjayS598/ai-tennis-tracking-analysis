@@ -67,6 +67,19 @@ export const LiveMonitorView: React.FC = () => {
             if (data.event.call === 'IN') playBeep(880, 'sine');
             else if (data.event.call === 'OUT') playBeep(330, 'square');
             else playBeep(550, 'triangle');
+          } else if (data.type === 'HAWKEYE_CHALLENGE_RESULT') {
+            const now = Date.now();
+            setLatestCall({
+              call: data.verdict,
+              confidence: 0.98,
+              reason: data.audio_announcement || `${data.verdict} by ${Math.abs(data.margin_cm).toFixed(1)} cm`,
+              latencyMs: 8,
+              timestamp: now,
+            });
+
+            if (data.verdict === 'IN') playBeep(880, 'sine');
+            else if (data.verdict === 'OUT') playBeep(330, 'square');
+            else playBeep(550, 'triangle');
           }
         } catch (e) {}
       };
