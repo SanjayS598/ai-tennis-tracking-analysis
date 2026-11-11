@@ -86,22 +86,67 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
     }, 4000);
 
     try {
+      formData.append('async_mode', 'true');
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
-      clearInterval(stepInterval);
-
       if (!res.ok) {
+        clearInterval(stepInterval);
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || `Upload failed with HTTP ${res.status}`);
       }
 
-      const report: SessionReport = await res.json();
-      setIsProcessing(false);
-      onSessionCreated(report);
-      onClose();
+      const uploadResp = await res.json();
+      const sessionId = uploadResp.session_id;
+
+      if (!sessionId) {
+        clearInterval(stepInterval);
+        throw new Error('No session ID returned from server upload.');
+      }
+
+      // If server returned completed report directly
+      if (uploadResp.status !== 'processing' && uploadResp.video_metadata) {
+        clearInterval(stepInterval);
+        setIsProcessing(false);
+        onSessionCreated(uploadResp);
+        onClose();
+        return;
+      }
+
+      // Poll status every 1.5 seconds until completed or error
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/sessions/${sessionId}/status`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.stage) {
+              setStatusStep(statusData.stage);
+            }
+            if (statusData.status === 'completed') {
+              clearInterval(pollInterval);
+              clearInterval(stepInterval);
+              const reportRes = await fetch(`/api/sessions/${sessionId}`);
+              if (reportRes.ok) {
+                const report: SessionReport = await reportRes.json();
+                setIsProcessing(false);
+                onSessionCreated(report);
+                onClose();
+              } else {
+                throw new Error('Failed to retrieve finalized session report.');
+              }
+            } else if (statusData.status === 'error') {
+              clearInterval(pollInterval);
+              clearInterval(stepInterval);
+              setIsProcessing(false);
+              setErrorMessage(statusData.error || 'Pipeline processing failed.');
+            }
+          }
+        } catch {
+          // Keep polling if temporary network glitch
+        }
+      }, 1500);
     } catch (err: any) {
       clearInterval(stepInterval);
       setIsProcessing(false);

@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import time
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Response
+from fastapi import FastAPI, BackgroundTasks, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -573,8 +573,107 @@ async def websocket_device_endpoint(websocket: WebSocket) -> None:
         device_manager.unregister_client(client_id)
 
 
+# In-memory session processing progress tracker
+SESSION_JOBS: Dict[str, Dict[str, Any]] = {}
+
+
+def _run_processing_job(
+    session_id: str,
+    video_dest: Path,
+    output_dir: Path,
+    clean_type: str,
+    player_name: str,
+    user_id: str,
+    is_doubles: bool,
+    render_video: bool,
+) -> Dict[str, Any]:
+    """Execute pipeline processing job, updating live progress in SESSION_JOBS."""
+    SESSION_JOBS[session_id] = {
+        "status": "processing",
+        "progress_pct": 10,
+        "stage": "Calibrating court geometry & homography...",
+        "error": None,
+        "session_id": session_id,
+    }
+
+    try:
+        calib_json = Path("configs/match_clip_1_calib.json")
+        if not calib_json.exists():
+            calib_json = None
+
+        SESSION_JOBS[session_id]["progress_pct"] = 30
+        SESSION_JOBS[session_id]["stage"] = "Running PyTorch TrackNet deep neural network..."
+
+        report = process_video(
+            input_path=video_dest,
+            output_dir=output_dir,
+            session_id=session_id,
+            calibration_path=calib_json,
+            render_video=render_video,
+            is_doubles=is_doubles,
+        )
+
+        SESSION_JOBS[session_id]["progress_pct"] = 70
+        SESSION_JOBS[session_id]["stage"] = "Extracting player kinematics & court side tracking..."
+
+        data = report.model_dump()
+        data["session_id"] = session_id
+        data["session_type"] = clean_type
+        data["player_name"] = player_name
+        data["user_id"] = user_id
+        data = enrich_session_data(data)
+
+        # Save enriched session.json
+        with open(output_dir / "session.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+        SESSION_JOBS[session_id] = {
+            "status": "completed",
+            "progress_pct": 100,
+            "stage": "Analysis Complete",
+            "error": None,
+            "session_id": session_id,
+        }
+        return data
+    except Exception as exc:
+        SESSION_JOBS[session_id] = {
+            "status": "error",
+            "progress_pct": 0,
+            "stage": "Processing Failed",
+            "error": str(exc),
+            "session_id": session_id,
+        }
+        raise
+
+
+@app.get("/api/sessions/{session_id}/status")
+def get_session_status(session_id: str) -> Dict[str, Any]:
+    """Retrieve realtime async processing status and stage for a session."""
+    if session_id in SESSION_JOBS:
+        return SESSION_JOBS[session_id]
+
+    s_dir = _find_session_dir(session_id)
+    if s_dir and (s_dir / "session.json").exists():
+        return {
+            "status": "completed",
+            "progress_pct": 100,
+            "stage": "Analysis Complete",
+            "error": None,
+            "session_id": session_id,
+        }
+
+    return {
+        "status": "not_found",
+        "progress_pct": 0,
+        "stage": "Session Not Found",
+        "error": f"Session '{session_id}' not found",
+        "session_id": session_id,
+    }
+
+
 @app.post("/api/upload")
 async def upload_and_process_session(
+    background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     sample_filename: Optional[str] = Form(None),
     session_type: str = Form("match"),
@@ -582,6 +681,7 @@ async def upload_and_process_session(
     user_id: str = Form("user_sanjay_shankar"),
     is_doubles: bool = Form(False),
     render_video: bool = Form(True),
+    async_mode: bool = Form(False),
 ) -> Dict[str, Any]:
     """Upload a match/rally/serve video or pick a court sample to analyze."""
     clean_type = session_type.lower()
@@ -597,9 +697,9 @@ async def upload_and_process_session(
     if file and file.filename:
         filename = file.filename
         video_dest = output_dir / filename
-        contents = await file.read()
         with open(video_dest, "wb") as f:
-            f.write(contents)
+            while chunk := await file.read(1024 * 1024):
+                f.write(chunk)
     elif sample_filename:
         sample_path = SAMPLES_DIR / sample_filename
         if not sample_path.exists():
@@ -609,31 +709,43 @@ async def upload_and_process_session(
     else:
         raise HTTPException(status_code=400, detail="Please upload a video file or select a court sample clip.")
 
-    calib_json = Path("configs/match_clip_1_calib.json")
-    if not calib_json.exists():
-        calib_json = None
-
-    report = process_video(
-        input_path=video_dest,
-        output_dir=output_dir,
-        session_id=session_id,
-        calibration_path=calib_json,
-        render_video=render_video,
-        is_doubles=is_doubles,
-    )
-
-    data = report.model_dump()
-    data["session_id"] = session_id
-    data["session_type"] = clean_type
-    data["player_name"] = player_name
-    data["user_id"] = user_id
-    data = enrich_session_data(data)
-
-    # Save enriched session.json
-    with open(output_dir / "session.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-    return data
+    if async_mode:
+        SESSION_JOBS[session_id] = {
+            "status": "processing",
+            "progress_pct": 5,
+            "stage": "Video file saved. Queuing pipeline...",
+            "error": None,
+            "session_id": session_id,
+        }
+        background_tasks.add_task(
+            _run_processing_job,
+            session_id=session_id,
+            video_dest=video_dest,
+            output_dir=output_dir,
+            clean_type=clean_type,
+            player_name=player_name,
+            user_id=user_id,
+            is_doubles=is_doubles,
+            render_video=render_video,
+        )
+        return {
+            "status": "processing",
+            "session_id": session_id,
+            "message": "Video uploaded successfully. Analysis running in background.",
+            "user_id": user_id,
+            "player_name": player_name,
+        }
+    else:
+        return _run_processing_job(
+            session_id=session_id,
+            video_dest=video_dest,
+            output_dir=output_dir,
+            clean_type=clean_type,
+            player_name=player_name,
+            user_id=user_id,
+            is_doubles=is_doubles,
+            render_video=render_video,
+        )
 
 
 @app.post("/api/challenge")

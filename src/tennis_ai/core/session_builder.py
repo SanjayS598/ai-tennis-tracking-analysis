@@ -10,6 +10,7 @@ from tennis_ai.core.schemas import (
     BiomechanicsData,
 )
 from tennis_ai.pose.extractor import extract_session_biomechanics
+from tennis_ai.player.tracker import PlayerIdentityTracker, tag_shots_with_player_side
 
 
 def generate_session_shots(
@@ -148,5 +149,22 @@ def enrich_session_data(data: Dict[str, Any]) -> Dict[str, Any]:
         data["player_name"] = "Sanjay Shankar"
     if "user_id" not in data or not data["user_id"]:
         data["user_id"] = "user_sanjay_shankar"
+
+    # 4. Computer Vision Player Identity & Court Side Tracking
+    if not data.get("player_tracking"):
+        tracker = PlayerIdentityTracker()
+        tracking_info = tracker.track_session_players(
+            video_path=source_video,
+            total_frames=total_frames,
+            fps=fps,
+            user_name=data["player_name"],
+            user_handedness="Right",
+            session_type=session_type,
+        )
+        data["player_tracking"] = tracking_info.model_dump()
+
+    # 5. Tag shots with player side & hitter identity
+    if data.get("shots") and data.get("player_tracking"):
+        tag_shots_with_player_side(data["shots"], data["player_tracking"])
 
     return data

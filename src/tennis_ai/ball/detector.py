@@ -191,8 +191,9 @@ class BallDetectorPipeline:
             orig_h = reader.metadata.height
 
             if self.tracknet is not None and len(frames_meta) >= 3:
-                # Sliding window of 3 frames for TrackNet
-                for i in range(1, len(frames_meta) - 1):
+                # Adaptive frame step: step=2 on CPU to accelerate throughput while Kalman filter smooths
+                step = 2 if getattr(self.tracknet, "device", None) and self.tracknet.device.type == "cpu" else 1
+                for i in range(1, len(frames_meta) - 1, step):
                     f_prev = frames_meta[i - 1][2]
                     curr_idx, curr_ts, f_curr = frames_meta[i]
                     f_next = frames_meta[i + 1][2]

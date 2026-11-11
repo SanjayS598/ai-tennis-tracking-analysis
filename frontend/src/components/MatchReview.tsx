@@ -237,7 +237,7 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          gridTemplateColumns: 'repeat(6, 1fr)',
           gap: '14px',
           marginBottom: '20px',
         }}
@@ -253,6 +253,20 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
           <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Video Source</div>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#f3f4f6', marginTop: '4px' }}>
             {width}x{height} @ {fps.toFixed(0)} FPS
+          </div>
+        </div>
+
+        <div className="apple-card" style={{ padding: '16px 20px' }}>
+          <div style={{ fontSize: '11px', color: '#0a84ff', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px', letterSpacing: '0.5px' }}>
+            <Activity size={12} /> Court End / Re-ID
+          </div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#60a5fa', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {session.player_tracking?.current_court_side === 'far' ? 'Far Baseline' : 'Near Baseline'}
+          </div>
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {session.player_tracking?.side_changes && session.player_tracking.side_changes.length > 0
+              ? `${session.player_tracking.side_changes.length} side switch${session.player_tracking.side_changes.length > 1 ? 'es' : ''}`
+              : `${session.player_tracking?.user_shirt_color || 'User Shirt'} tracked`}
           </div>
         </div>
 
@@ -368,6 +382,33 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
         </div>
       </div>
 
+      {/* Side Change & Computer Vision Player Re-ID Notice */}
+      {session.player_tracking?.side_changes && session.player_tracking.side_changes.length > 0 && (
+        <div
+          className="liquid-glass-panel"
+          style={{
+            padding: '10px 18px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            border: '1px solid rgba(10, 132, 255, 0.25)',
+            background: 'rgba(10, 132, 255, 0.08)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#93c5fd' }}>
+            <Activity size={15} color="#60a5fa" />
+            <span>
+              <strong>CV Player Tracking & Re-ID:</strong> Detected {session.player_tracking.side_changes.length} court end side-change event{session.player_tracking.side_changes.length > 1 ? 's' : ''}. Tracking <strong>{session.player_name || 'User'}</strong> ({session.player_tracking.user_shirt_color}) vs Opponent ({session.player_tracking.opponent_shirt_color}).
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>
+            Current: {session.player_tracking.current_court_side === 'far' ? 'Far Baseline' : 'Near Baseline'}
+          </span>
+        </div>
+      )}
+
       {/* Shot Selector Bar (Step-by-Step Navigation) */}
       {shots.length > 0 && (
         <div
@@ -392,6 +433,7 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '2px' }}>
             {shots.map((shot, idx) => {
               const isSelected = idx === activeShotIndex;
+              const isUserShot = shot.hitter === 'user' || shot.is_user_shot !== false;
               return (
                 <button
                   key={idx}
@@ -413,6 +455,17 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                   }}
                 >
                   <span>Shot #{shot.shot_number || idx + 1}</span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      background: isUserShot ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 159, 10, 0.25)',
+                      color: isUserShot ? '#93c5fd' : '#fcd34d',
+                    }}
+                  >
+                    {isUserShot ? 'You' : 'Opponent'}
+                  </span>
                   <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                     {shot.stroke_type}
                   </span>
@@ -498,7 +551,7 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                     left: '12px',
                     padding: '8px 14px',
                     borderRadius: '12px',
-                    background: 'rgba(15, 23, 42, 0.85)',
+                    background: 'rgba(15, 23, 42, 0.88)',
                     backdropFilter: 'blur(16px)',
                     border: '1px solid rgba(255, 255, 255, 0.12)',
                     display: 'flex',
@@ -519,8 +572,25 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                   >
                     {realtimeActiveShot.call}
                   </span>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff' }}>
-                    {realtimeActiveShot.stroke_type} • {realtimeActiveShot.speed_mph.toFixed(0)} MPH
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>{realtimeActiveShot.stroke_type} • {realtimeActiveShot.speed_mph.toFixed(0)} MPH</span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          background: (realtimeActiveShot.hitter === 'user' || realtimeActiveShot.is_user_shot !== false) ? 'rgba(10, 132, 255, 0.3)' : 'rgba(255, 159, 10, 0.3)',
+                          color: (realtimeActiveShot.hitter === 'user' || realtimeActiveShot.is_user_shot !== false) ? '#93c5fd' : '#fcd34d',
+                        }}
+                      >
+                        {(realtimeActiveShot.hitter === 'user' || realtimeActiveShot.is_user_shot !== false) ? (session.player_name || 'You') : 'Opponent'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                      {realtimeActiveShot.court_side === 'far' ? 'Far Baseline End' : 'Near Baseline End'}
+                    </div>
                   </div>
                 </div>
               )}
@@ -689,8 +759,29 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                   </div>
 
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff' }}>
-                      {realtimeActiveShot.stroke_type}
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>{realtimeActiveShot.stroke_type}</span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '9999px',
+                          background:
+                            (realtimeActiveShot.hitter === 'user' || realtimeActiveShot.is_user_shot !== false)
+                              ? 'rgba(10, 132, 255, 0.25)'
+                              : 'rgba(255, 159, 10, 0.25)',
+                          color:
+                            (realtimeActiveShot.hitter === 'user' || realtimeActiveShot.is_user_shot !== false)
+                              ? '#60a5fa'
+                              : '#fbbf24',
+                        }}
+                      >
+                        {(realtimeActiveShot.hitter === 'user' || realtimeActiveShot.is_user_shot !== false) ? (session.player_name || 'You') : 'Opponent'}
+                      </span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>
+                        ({realtimeActiveShot.court_side === 'far' ? 'Far End' : 'Near End'})
+                      </span>
                     </div>
                     <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>
                       {realtimeActiveShot.speed_mph.toFixed(0)} MPH •{' '}
@@ -919,6 +1010,24 @@ export const MatchReview: React.FC<MatchReviewProps> = ({
                           }}
                         >
                           {shot.call}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '5px' }}>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            background: (shot.hitter === 'user' || shot.is_user_shot !== false) ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 159, 10, 0.25)',
+                            color: (shot.hitter === 'user' || shot.is_user_shot !== false) ? '#93c5fd' : '#fcd34d',
+                          }}
+                        >
+                          {(shot.hitter === 'user' || shot.is_user_shot !== false) ? (session.player_name || 'You') : 'Opponent'}
+                        </span>
+                        <span style={{ fontSize: '10px', color: '#64748b' }}>
+                          {shot.court_side === 'far' ? 'Far Court' : 'Near Court'}
                         </span>
                       </div>
 

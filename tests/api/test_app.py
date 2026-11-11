@@ -155,12 +155,45 @@ def test_api_upload_sample_clip(client: TestClient):
     assert result["player_name"] == "Sanjay Shankar"
     assert "shots" in result
     assert "session_id" in result
+    assert "player_tracking" in result
+    assert result["player_tracking"]["current_court_side"] in ["near", "far"]
+    if result["shots"]:
+        assert "hitter" in result["shots"][0]
+        assert "court_side" in result["shots"][0]
 
     # Test that delete works on this newly created session
     sid = result["session_id"]
     del_res = client.delete(f"/api/sessions/{sid}")
     assert del_res.status_code == 200
     assert del_res.json()["status"] == "deleted"
+
+
+def test_api_async_upload_and_status(client: TestClient):
+    # Test non-blocking async upload mode and status polling
+    data = {
+        "sample_filename": "sample_tennis.mp4",
+        "session_type": "rally",
+        "player_name": "Sanjay Shankar",
+        "user_id": "user_sanjay_shankar",
+        "render_video": "false",
+        "async_mode": "true",
+    }
+    res = client.post("/api/upload", data=data)
+    assert res.status_code == 200
+    result = res.json()
+    assert result["status"] == "processing"
+    assert "session_id" in result
+    sid = result["session_id"]
+
+    # Check status endpoint immediately
+    status_res = client.get(f"/api/sessions/{sid}/status")
+    assert status_res.status_code == 200
+    status_data = status_res.json()
+    assert "status" in status_data
+    assert "stage" in status_data
+
+    # Cleanup session
+    client.delete(f"/api/sessions/{sid}")
 
 
 def test_api_challenge_endpoint(client: TestClient):

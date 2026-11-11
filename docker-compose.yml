@@ -12,6 +12,8 @@ services:
       - ./outputs:/app/outputs
       - ./data/samples:/app/data/samples
       - ./configs:/app/configs
+      - ./src:/app/src
+      - ./frontend/dist:/app/frontend/dist
     environment:
       - PYTHONUNBUFFERED=1
       - PORT=8000
