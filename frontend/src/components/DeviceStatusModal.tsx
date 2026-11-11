@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Smartphone, Watch, X, Wifi, RefreshCw, ExternalLink, Radio, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Smartphone, Watch, X, Wifi, RefreshCw, ExternalLink, Radio, CheckCircle2, AlertCircle, Copy, Check, QrCode } from 'lucide-react';
 import { DeviceStatusResponse } from '../types';
 
 interface DeviceStatusModalProps {
@@ -18,13 +18,24 @@ export const DeviceStatusModal: React.FC<DeviceStatusModalProps> = ({
   onToggleDeviceSimulation,
 }) => {
   const [isScanning, setIsScanning] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen || !devices) return null;
 
   const iphone = devices.iphone;
   const watch = devices.watch;
-  const lanIp = devices.local_lan_ip || '127.0.0.1';
-  const pairingUrl = devices.pairing_url || `http://${lanIp}:8000/companion`;
+  const hostIp =
+    typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? window.location.hostname
+      : (devices.local_lan_ip && !devices.local_lan_ip.startsWith('172.19.') && !devices.local_lan_ip.startsWith('172.18.') ? devices.local_lan_ip : '172.16.5.195');
+  const pairingUrl = `http://${hostIp}:8000/companion`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=4&data=${encodeURIComponent(pairingUrl)}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(pairingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleScanNow = async () => {
     setIsScanning(true);
@@ -270,21 +281,21 @@ export const DeviceStatusModal: React.FC<DeviceStatusModalProps> = ({
             )}
           </div>
 
-          {/* Real Device Pairing URL Banner */}
+          {/* Real Device Pairing URL Banner with QR Code */}
           <div
             style={{
               background: 'rgba(48, 209, 88, 0.06)',
-              border: '1px solid rgba(48, 209, 88, 0.2)',
-              borderRadius: '14px',
-              padding: '16px',
+              border: '1px solid rgba(48, 209, 88, 0.25)',
+              borderRadius: '16px',
+              padding: '18px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#30d158' }}>
-                Connect Your Actual iPhone
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#30d158', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <QrCode size={16} /> Instant iPhone & Watch Connection
               </div>
               <a
-                href="/companion"
+                href={pairingUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -297,27 +308,76 @@ export const DeviceStatusModal: React.FC<DeviceStatusModalProps> = ({
                   fontWeight: 600,
                 }}
               >
-                Open Companion Webapp <ExternalLink size={12} />
+                Open in Browser <ExternalLink size={12} />
               </a>
             </div>
-            <p style={{ fontSize: '12px', color: '#86868b', margin: '0 0 10px 0', lineHeight: 1.4 }}>
-              Open Safari on your iPhone on the same Wi-Fi and navigate to:
-            </p>
-            <div
-              style={{
-                background: '#000000',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-                color: '#f5f5f7',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>{pairingUrl}</span>
+
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              {/* QR Code image */}
+              <div
+                style={{
+                  background: '#ffffff',
+                  padding: '6px',
+                  borderRadius: '10px',
+                  flexShrink: 0,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                }}
+              >
+                <img
+                  src={qrCodeUrl}
+                  alt="Pairing QR Code"
+                  width={110}
+                  height={110}
+                  style={{ display: 'block' }}
+                />
+              </div>
+
+              {/* Step-by-Step Instructions */}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '8px' }}>
+                  <strong>1.</strong> Ensure your iPhone is on the same Wi-Fi.<br />
+                  <strong>2.</strong> Scan this QR code with your iPhone Camera (or open Safari).<br />
+                  <strong>3.</strong> Tap <em>"Connect Camera & Haptics"</em>.
+                </div>
+
+                <div
+                  style={{
+                    background: '#000000',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    color: '#f5f5f7',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                  }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pairingUrl}
+                  </span>
+                  <button
+                    onClick={handleCopy}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      color: copied ? '#30d158' : '#cbd5e1',
+                      padding: '4px 8px',
+                      cursor: 'pointer',
+                      fontSize: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    {copied ? <Check size={11} /> : <Copy size={11} />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
