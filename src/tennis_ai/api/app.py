@@ -238,7 +238,9 @@ def get_session_video(session_id: str, request: Request) -> Response:
 
     video_path = s_dir / "annotated_match.mp4"
     if not video_path.exists():
-        candidates = list(s_dir.glob("*.mp4"))
+        # Look for any video file in the session directory (.mp4, .mov, .mkv, .webm, .avi, .m4v)
+        video_exts = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+        candidates = [f for f in s_dir.iterdir() if f.is_file() and f.suffix.lower() in video_exts]
         if candidates:
             video_path = candidates[0]
         else:
@@ -248,8 +250,12 @@ def get_session_video(session_id: str, request: Request) -> Response:
                     with open(meta_json, "r", encoding="utf-8") as f:
                         meta = json.load(f)
                     src_v = meta.get("video_metadata", {}).get("source_video")
-                    if src_v and Path(src_v).exists():
-                        video_path = Path(src_v)
+                    if src_v:
+                        p_src = Path(src_v)
+                        if p_src.exists():
+                            video_path = p_src
+                        elif (s_dir / p_src.name).exists():
+                            video_path = s_dir / p_src.name
                 except Exception:
                     pass
 
@@ -258,24 +264,25 @@ def get_session_video(session_id: str, request: Request) -> Response:
 
     file_size = video_path.stat().st_size
     range_header = request.headers.get("range")
+    content_type = "video/quicktime" if video_path.suffix.lower() == ".mov" else "video/mp4"
 
     headers = {
         "Accept-Ranges": "bytes",
-        "Content-Type": "video/mp4",
+        "Content-Type": content_type,
     }
 
     if request.method == "HEAD":
         headers["Content-Length"] = str(file_size)
-        return Response(status_code=200, headers=headers, media_type="video/mp4")
+        return Response(status_code=200, headers=headers, media_type=content_type)
 
     if not range_header:
         headers["Content-Length"] = str(file_size)
-        return FileResponse(str(video_path), headers=headers, media_type="video/mp4")
+        return FileResponse(str(video_path), headers=headers, media_type=content_type)
 
     try:
         range_val = range_header.strip().lower()
         if not range_val.startswith("bytes="):
-            return FileResponse(str(video_path), headers=headers, media_type="video/mp4")
+            return FileResponse(str(video_path), headers=headers, media_type=content_type)
 
         parts = range_val[6:].split("-")
         start = int(parts[0]) if parts[0] else 0
