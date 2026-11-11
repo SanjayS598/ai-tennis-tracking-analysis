@@ -99,6 +99,9 @@ class ShotTrajectory(BaseModel):
     frame_idx: int = Field(ge=0)
     timestamp_ms: float = Field(ge=0)
     description: str = ""
+    hitter: str = "user"  # "user" or "opponent"
+    court_side: str = "near"  # "near" or "far"
+    is_user_shot: bool = True
 
 
 class PoseFrame(BaseModel):
@@ -125,6 +128,26 @@ class BiomechanicsData(BaseModel):
     coaching_summary: str = "Optimal kinetic chain transfer from ground reaction force through torso to racket face."
 
 
+class SideChangeEvent(BaseModel):
+    """Event indicating players have switched ends/sides of the court."""
+    frame_idx: int = Field(ge=0)
+    timestamp_ms: float = Field(ge=0)
+    user_court_side: str = "near"  # "near" or "far"
+    opponent_court_side: str = "far"  # "far" or "near"
+    confidence: float = 0.95
+    reason: str = "Visual appearance Re-ID & net crossing"
+
+
+class PlayerTrackingInfo(BaseModel):
+    """Computer vision player identity, appearance embeddings, and court side changes."""
+    user_name: str = "Sanjay Shankar"
+    user_handedness: str = "Right"
+    current_court_side: str = "near"
+    user_shirt_color: str = "Navy Blue"
+    opponent_shirt_color: str = "White / Crimson"
+    side_changes: List[SideChangeEvent] = Field(default_factory=list)
+
+
 class SessionReport(BaseModel):
     """Complete machine-readable session output report."""
     session_id: str
@@ -140,3 +163,4 @@ class SessionReport(BaseModel):
     events: List[BounceEvent] = Field(default_factory=list)
     shots: List[ShotTrajectory] = Field(default_factory=list)
     biomechanics: Optional[BiomechanicsData] = None
+    player_tracking: Optional[PlayerTrackingInfo] = None

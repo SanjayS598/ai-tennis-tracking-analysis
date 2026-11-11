@@ -54,6 +54,9 @@ export interface ShotTrajectory {
   frame_idx: number;
   timestamp_ms: number;
   description: string;
+  hitter?: 'user' | 'opponent';
+  court_side?: 'near' | 'far';
+  is_user_shot?: boolean;
 }
 
 export interface PoseFrame {
@@ -88,6 +91,24 @@ export interface UserProfile {
 
 export type SessionType = 'match' | 'rally' | 'serve' | 'challenge';
 
+export interface SideChangeEvent {
+  frame_idx: number;
+  timestamp_ms: number;
+  user_court_side: 'near' | 'far';
+  opponent_court_side: 'far' | 'near';
+  confidence: number;
+  reason: string;
+}
+
+export interface PlayerTrackingInfo {
+  user_name: string;
+  user_handedness: string;
+  current_court_side: 'near' | 'far';
+  user_shirt_color: string;
+  opponent_shirt_color: string;
+  side_changes: SideChangeEvent[];
+}
+
 export interface SessionReport {
   session_id: string;
   session_type?: SessionType;
@@ -100,6 +121,7 @@ export interface SessionReport {
   events: BounceEvent[];
   shots?: ShotTrajectory[];
   biomechanics?: BiomechanicsData;
+  player_tracking?: PlayerTrackingInfo;
 }
 
 export interface SessionSummary {
