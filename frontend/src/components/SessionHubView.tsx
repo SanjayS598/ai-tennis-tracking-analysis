@@ -13,6 +13,7 @@ import {
   Video,
   FileQuestion,
   Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { SessionSummary, SessionType, UserProfile } from '../types';
 
@@ -55,6 +56,7 @@ export const SessionHubView: React.FC<SessionHubViewProps> = ({
   const matchCount = displaySessions.filter((s) => (s.session_type || 'match') === 'match').length;
   const rallyCount = displaySessions.filter((s) => s.session_type === 'rally').length;
   const serveCount = displaySessions.filter((s) => s.session_type === 'serve').length;
+  const challengeCount = displaySessions.filter((s) => s.session_type === 'challenge').length;
 
   return (
     <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '36px 24px' }}>
@@ -158,6 +160,7 @@ export const SessionHubView: React.FC<SessionHubViewProps> = ({
                   { id: 'match', label: 'Matches', count: matchCount, icon: Award },
                   { id: 'rally', label: 'Rallies', count: rallyCount, icon: Activity },
                   { id: 'serve', label: 'Serve Practice', count: serveCount, icon: Zap },
+                  { id: 'challenge', label: 'Challenges', count: challengeCount, icon: Sparkles },
                 ] as const
               ).map((tab) => {
                 const isSelected = filterType === tab.id;
@@ -238,6 +241,9 @@ export const SessionHubView: React.FC<SessionHubViewProps> = ({
                 } else if (sType === 'serve') {
                   accentColor = '#ff9f0a';
                   badgeLabel = 'Serve Practice';
+                } else if (sType === 'challenge') {
+                  accentColor = '#ffd60a';
+                  badgeLabel = 'Hawk-Eye Challenge';
                 }
 
                 return (

@@ -421,6 +421,7 @@ export const UploadSessionModal: React.FC<UploadSessionModalProps> = ({
                   <option value="match">Tournament Match</option>
                   <option value="rally">Baseline Rally Drill</option>
                   <option value="serve">Serve Practice</option>
+                  <option value="challenge">Hawk-Eye Line Challenge (15s)</option>
                 </select>
               </div>
 

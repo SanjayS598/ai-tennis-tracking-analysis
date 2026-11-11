@@ -15,6 +15,8 @@ public class WatchReceiver: NSObject, ObservableObject, WCSessionDelegate {
     @Published public var confidence: Double = 1.0
     @Published public var shotSpeedMph: Int = 78
     @Published public var heartRateBpm: Int = 142
+    @Published public var marginCm: Double = 0.0
+    @Published public var isChallenging: Bool = false
 
     public override init() {
         super.init()
@@ -29,11 +31,15 @@ public class WatchReceiver: NSObject, ObservableObject, WCSessionDelegate {
 
     public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         DispatchQueue.main.async {
-            if let call = message["call"] as? String {
+            self.isChallenging = false
+            if let call = (message["verdict"] as? String) ?? (message["call"] as? String) {
                 self.currentCall = call
                 self.confidence = (message["confidence"] as? Double) ?? 1.0
                 if let speed = message["speed"] as? Int {
                     self.shotSpeedMph = speed
+                }
+                if let margin = message["margin_cm"] as? Double {
+                    self.marginCm = margin
                 }
                 self.triggerHaptic(for: call)
             }
@@ -42,10 +48,26 @@ public class WatchReceiver: NSObject, ObservableObject, WCSessionDelegate {
 
     public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         DispatchQueue.main.async {
-            if let call = applicationContext["call"] as? String {
+            self.isChallenging = false
+            if let call = (applicationContext["verdict"] as? String) ?? (applicationContext["call"] as? String) {
                 self.currentCall = call
                 self.confidence = (applicationContext["confidence"] as? Double) ?? 1.0
+                if let margin = applicationContext["margin_cm"] as? Double {
+                    self.marginCm = margin
+                }
                 self.triggerHaptic(for: call)
+            }
+        }
+    }
+
+    public func requestChallenge() {
+        self.isChallenging = true
+        WKInterfaceDevice.current().play(.click)
+        guard WCSession.isSupported(), WCSession.default.isReachable else { return }
+        WCSession.default.sendMessage(["action": "CHALLENGE"], replyHandler: nil) { [weak self] err in
+            print("[Watch] Challenge send error: \(err.localizedDescription)")
+            DispatchQueue.main.async {
+                self?.isChallenging = false
             }
         }
     }
@@ -77,25 +99,57 @@ struct WatchContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // TAB 1: Live Line Call Card (SwingVision primary watch face)
+            // TAB 1: Live Line Call & Instant Hawk-Eye Challenge
             ZStack {
                 backgroundColor(receiver.currentCall)
                     .ignoresSafeArea()
 
-                VStack(spacing: 2) {
-                    Text(receiver.currentCall)
-                        .font(.system(size: 48, weight: .black, design: .rounded))
-                        .foregroundColor(.white)
-                        .minimumScaleFactor(0.6)
-
-                    if receiver.currentCall != "READY" {
-                        Text(String(format: "%.0f%% Conf | %d MPH", receiver.confidence * 100, receiver.shotSpeedMph))
+                VStack(spacing: 4) {
+                    if receiver.isChallenging {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .yellow))
+                        Text("Judging 15s Rally...")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white.opacity(0.9))
+                            .foregroundColor(.yellow)
                     } else {
-                        Text("SwingVision Live")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                        Text(receiver.currentCall)
+                            .font(.system(size: 42, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                            .minimumScaleFactor(0.6)
+
+                        if receiver.currentCall != "READY" {
+                            HStack(spacing: 4) {
+                                Text(String(format: "%+.1f cm", receiver.marginCm))
+                                    .font(.system(size: 11, weight: .heavy))
+                                    .foregroundColor(.yellow)
+                                Text("|")
+                                    .foregroundColor(.gray)
+                                Text("\(receiver.shotSpeedMph) MPH")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+                        } else {
+                            Text("720p60 Buffer Armed")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
+
+                        // Wrist-Activated Hawk-Eye Challenge Button
+                        Button(action: { receiver.requestChallenge() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "eye.trianglebadge.exclamationmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("CHALLENGE")
+                                    .font(.system(size: 11, weight: .heavy))
+                            }
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.yellow)
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.top, 4)
                     }
                 }
             }

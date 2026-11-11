@@ -2,7 +2,7 @@
 //  CameraManager.swift
 //  TennisRecorder (iOS)
 //
-//  High-performance 1080p @ 60fps AVFoundation camera engine with stabilization.
+//  High-performance 720p @ 60fps AVFoundation camera engine with rolling buffer challenge.
 //
 
 import AVFoundation
@@ -14,6 +14,7 @@ public class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutput
     @Published public var pitchDegrees: Double = 0.0
     @Published public var rollDegrees: Double = 0.0
     @Published public var isLevel: Bool = false
+    @Published public var resolutionLabel: String = "720p @ 60 FPS (On-Court Optimized)"
 
     public let captureSession = AVCaptureSession()
     private let videoOutput = AVCaptureVideoDataOutput()
@@ -45,7 +46,8 @@ public class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutput
         sessionQueue.async { [weak self] in
             guard let self = self else { return }
             self.captureSession.beginConfiguration()
-            self.captureSession.sessionPreset = .hd1920x1080
+            // 720p @ 60 FPS: Conserves bandwidth, thermals, and battery on court
+            self.captureSession.sessionPreset = .hd1280x720
 
             // Prefer wide-angle back camera
             guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),

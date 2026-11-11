@@ -158,6 +158,28 @@ public struct LiveSessionHUD: View {
 
                     Spacer()
 
+                    // Hawk-Eye Instant 15s Challenge Button (On-Demand Line Call)
+                    Button(action: { CircularVideoBuffer.shared.triggerChallenge() }) {
+                        HStack(spacing: 6) {
+                            if CircularVideoBuffer.shared.isChallenging {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "eye.trianglebadge.exclamationmark")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                            Text(CircularVideoBuffer.shared.isChallenging ? "JUDGING..." : "CHALLENGE")
+                                .font(.system(size: 13, weight: .heavy))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .background(Color(red: 1.0, green: 0.85, blue: 0.0))
+                        .cornerRadius(30)
+                        .shadow(color: Color.yellow.opacity(0.5), radius: 8)
+                    }
+
                     // Big Record Button
                     Button(action: toggleSession) {
                         HStack(spacing: 8) {

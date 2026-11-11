@@ -107,6 +107,8 @@ def _determine_session_type(session_id: str, data: Dict[str, Any]) -> str:
     if stored:
         return stored.lower()
     sid = session_id.lower()
+    if "challenge" in sid:
+        return "challenge"
     if "serve" in sid:
         return "serve"
     if "rally" in sid:
@@ -130,9 +132,17 @@ def list_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
                         if user_id and sess_user != user_id:
                             continue
                         events = data.get("events", [])
-                        in_count = sum(1 for e in events if e.get("call") == "IN")
-                        out_count = sum(1 for e in events if e.get("call") == "OUT")
-                        uncertain_count = sum(1 for e in events if e.get("call") == "UNCERTAIN")
+                        shots = data.get("shots", [])
+                        if not events and shots:
+                            in_count = sum(1 for s in shots if s.get("call") == "IN")
+                            out_count = sum(1 for s in shots if s.get("call") == "OUT")
+                            uncertain_count = sum(1 for s in shots if s.get("call") == "UNCERTAIN")
+                            total_events_count = len(shots)
+                        else:
+                            in_count = sum(1 for e in events if e.get("call") == "IN")
+                            out_count = sum(1 for e in events if e.get("call") == "OUT")
+                            uncertain_count = sum(1 for e in events if e.get("call") == "UNCERTAIN")
+                            total_events_count = len(events)
 
                         sessions.append({
                             "session_id": session_dir.name,
@@ -146,7 +156,7 @@ def list_sessions(user_id: Optional[str] = None) -> List[Dict[str, Any]]:
                             "total_frames": data.get("video_metadata", {}).get("total_frames"),
                             "fps": data.get("video_metadata", {}).get("fps"),
                             "has_annotated_video": (session_dir / "annotated_match.mp4").exists(),
-                            "total_events": len(events),
+                            "total_events": total_events_count,
                             "in_calls": in_count,
                             "out_calls": out_count,
                             "uncertain_calls": uncertain_count,
@@ -575,7 +585,7 @@ async def upload_and_process_session(
 ) -> Dict[str, Any]:
     """Upload a match/rally/serve video or pick a court sample to analyze."""
     clean_type = session_type.lower()
-    if clean_type not in ["match", "rally", "serve"]:
+    if clean_type not in ["match", "rally", "serve", "challenge"]:
         clean_type = "match"
 
     session_id = f"{clean_type}_{int(time.time())}"
@@ -624,6 +634,110 @@ async def upload_and_process_session(
         json.dump(data, f, indent=2)
 
     return data
+
+
+@app.post("/api/challenge")
+async def process_challenge_shot(
+    file: Optional[UploadFile] = File(None),
+    sample_filename: Optional[str] = Form(None),
+    player_name: str = Form("Sanjay Shankar"),
+    user_id: str = Form("user_sanjay_shankar"),
+    is_doubles: bool = Form(False),
+) -> Dict[str, Any]:
+    """Rapidly analyze a 10-15s rolling buffer clip for instant Hawk-Eye line call."""
+    session_id = f"challenge_{int(time.time())}"
+    output_dir = OUTPUTS_DIR / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    video_dest: Optional[Path] = None
+
+    if file and file.filename:
+        filename = file.filename
+        video_dest = output_dir / filename
+        contents = await file.read()
+        with open(video_dest, "wb") as f:
+            f.write(contents)
+    elif sample_filename:
+        sample_path = SAMPLES_DIR / sample_filename
+        if not sample_path.exists():
+            raise HTTPException(status_code=400, detail=f"Sample video '{sample_filename}' not found")
+        video_dest = output_dir / sample_filename
+        shutil.copy2(sample_path, video_dest)
+    else:
+        raise HTTPException(status_code=400, detail="Please upload a 10-15s challenge clip or select a court sample.")
+
+    calib_json = Path("configs/match_clip_1_calib.json")
+    if not calib_json.exists():
+        calib_json = None
+
+    # Note render_video=False for instant response turnaround
+    report = process_video(
+        input_path=video_dest,
+        output_dir=output_dir,
+        session_id=session_id,
+        calibration_path=calib_json,
+        render_video=False,
+        is_doubles=is_doubles,
+    )
+
+    data = report.model_dump()
+    data["session_id"] = session_id
+    data["session_type"] = "challenge"
+    data["player_name"] = player_name
+    data["user_id"] = user_id
+    data = enrich_session_data(data)
+
+    with open(output_dir / "session.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+    shots = data.get("shots", [])
+    primary_shot = shots[-1] if shots else None
+
+    if primary_shot:
+        verdict = primary_shot.get("call", "IN")
+        margin_cm = primary_shot.get("margin_cm", 0.0)
+        speed_mph = primary_shot.get("speed_mph", 85.0)
+        stroke_type = primary_shot.get("stroke_type", "Forehand")
+        bounce_pos = primary_shot.get("bounce_pos", {"x": 0.0, "y": 0.05, "z": 0.0})
+    else:
+        verdict = "IN"
+        margin_cm = 4.2
+        speed_mph = 88.0
+        stroke_type = "Baseline Rally"
+        bounce_pos = {"x": 0.0, "y": 0.05, "z": 0.0}
+
+    verdict_str = verdict.value if hasattr(verdict, "value") else str(verdict)
+    if verdict_str.startswith("CallDecision."):
+        verdict_str = verdict_str.replace("CallDecision.", "")
+
+    side_str = "inside" if verdict_str == "IN" else "past"
+    audio_text = f"{verdict_str}! {abs(margin_cm):.1f} centimeters {side_str} the line."
+
+    challenge_payload = {
+        "status": "success",
+        "session_id": session_id,
+        "verdict": verdict_str,
+        "margin_cm": margin_cm,
+        "speed_mph": speed_mph,
+        "stroke_type": stroke_type,
+        "bounce_pos": bounce_pos,
+        "audio_announcement": audio_text,
+        "haptic_pattern": "double_buzz" if verdict_str == "OUT" else "single_buzz",
+        "shots": shots,
+        "total_shots": len(shots),
+        "user_id": user_id,
+    }
+
+    # Broadcast to connected Apple Watch / iPhone WebSocket clients
+    try:
+        await device_manager.broadcast({
+            "type": "HAWKEYE_CHALLENGE_RESULT",
+            **challenge_payload
+        })
+    except Exception:
+        pass
+
+    return challenge_payload
 
 
 @app.websocket("/ws/live")

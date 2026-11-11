@@ -381,6 +381,39 @@ export const DeviceStatusModal: React.FC<DeviceStatusModalProps> = ({
             </div>
           </div>
 
+          {/* Remote On-Court Tailscale Mode */}
+          <div
+            style={{
+              background: 'rgba(10, 132, 255, 0.06)',
+              border: '1px solid rgba(10, 132, 255, 0.25)',
+              borderRadius: '16px',
+              padding: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0a84ff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Wifi size={15} /> Remote On-Court Mode (Tailscale Cellular)
+              </div>
+              <span style={{ fontSize: '11px', color: '#86868b' }}>No Court Wi-Fi Needed</span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '8px' }}>
+              When playing outdoors on cellular, connect iPhone to your Tailscale mesh (e.g. Linux VM <code>ss-dsktp</code> at <code>100.100.166.88</code>). The phone records <strong>720p @ 60 FPS</strong> locally and uploads the last 15s on-demand when you challenge a line call.
+            </div>
+            <div
+              style={{
+                background: '#000000',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                fontFamily: 'monospace',
+                fontSize: '11px',
+                color: '#30d158',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              Tailscale Hub URL: http://100.100.166.88:8000
+            </div>
+          </div>
+
           {/* Developer / Demo Simulation Overrides */}
           <div
             style={{
